@@ -4,6 +4,7 @@ title: "Heart of a Functional programming"
 date: 2013-04-05
 comments: true
 categories: 
+ - functional programming
 ---
 ## Intro
 Every functional programmer should write an article about what FP is at

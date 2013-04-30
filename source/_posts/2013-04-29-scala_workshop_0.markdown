@@ -4,6 +4,9 @@ title: "Scala Workshop - day 0"
 date: 2013-04-29
 comments: true
 categories: 
+ - Scala
+ - WAAS
+ - functional programming
 ---
 I love Scala. It's combines goodies from JVM and Java infrastructure,
 Haskell and dynamic languages like Ruby - and it almost doesn't inherit
@@ -25,7 +28,7 @@ Here are things I want to try in this project:
 *   Functional dependency injection via implicit parameters
 *   Properties checking with ScalaCheck
 *   Concurrency with Akka actors
-*   RIA with Play2 or Lift or JS%2BScalatra - yet to decide
+*   RIA with Play2 or Lift or JS/Scalatra - yet to decide
 
 I'm also going to focus more on functional side of Scala as I see it.  
 <!-- more -->
@@ -45,9 +48,8 @@ you to put different pieces of Scala infrastructure together.
 ## What you should know
 
 You should be familiar with Scala syntax - at least not scared with it.
-I'm not going to explain, what a 'trait', 'val' or 'def' keyword means.
-If you want to read some introductory stuff - I can recommend  [Scala
-for Java refugees][1] or [Another tour of Scala][2]. 
+I'm not going to explain, what a `trait`, `val` or `def` keyword means.
+If you want to read some introductory stuff - I can recommend  [Scala for Java refugees][1] or [Another tour of Scala][2]. 
 
 ## Starting
 
@@ -77,7 +79,7 @@ $ mkdir project
 $ cat > project.sbt
 scalaVersion := "2.10.1"
 
-resolvers %2B%2B= Seq("snapshots" at
+resolvers ++= Seq("snapshots" at
 "http://oss.sonatype.org/content/repositories/snapshots",
                   "releases"  at
 "http://oss.sonatype.org/content/repositories/releases")
@@ -101,7 +103,7 @@ write down your comments here.
 
 So, lets add Specs2 dependency to our project file:
 
-```scala
+```scala project.sbt
   libraryDependencies ++= Seq(
       "org.specs2" %% "specs2" % "1.14" % "test"
   )
@@ -129,7 +131,7 @@ Now let's start continuous testing - run `~ test` in SBT shell. It will
 monitor your source files and relaunch test suite once you saved your
 code. Let's add first test file `src/test/scala/CalculatorSpec.scala`
 
-```scala
+```scala src/test/scala/CalculatorSpec.scala
 import org.specs2.mutable._
 
 class CalculatorSpec extends Specification {
@@ -140,7 +142,7 @@ Nothing special is going on here - adding necessary imports and
 extending specific class. Let's add a first specification. Scala
 features made possible fluent specs declarations similar to RSpec:
 
-```scala
+```scala src/test/scala/CalculatorSpec.scala
   "Native scala operations" should {
     "add" in { 2 + 2 must_== 4 }
     "subtract" in { 5 - 4 must_== 1 }
@@ -164,7 +166,7 @@ immediately.
 But enough theory. Let's create a calculator - it's a common showcase
 for TDD.
 
-```scala
+```scala src/test/scala/CalculatorSpec.scala
   "Calculator" should {
     "add" in { Calculator.add(3, 3) must_== 6 }
     "subtract" in { Calculator.subtract(10, 3) must_== 7 }
@@ -178,7 +180,7 @@ That ugly API will be our calculator. If we have a glance at our SBT
 shell we'll notice compilation fails. so let's add calculator definition
 into `src/main/scala/Calculator.scala`:
 
-```scala
+```scala src/main/scala/Calculator.scala
 object Calculator {
   def add(x: Int, y: Int): Int = ???
   def subtract(x: Int, y: Int): Int = ???
@@ -203,7 +205,7 @@ stage - tests are executed, but exception is thrown. Nice. Let's use
 'obvious implementation' and add, well, obvious implementation for all 4
 methods:
 
-```scala 
+```scala src/main/scala/Calculator.scala
 object Calculator {
   def add(x: Int, y: Int) = x + y
   def subtract(x: Int, y: Int) = x - y
@@ -221,7 +223,7 @@ way to improve a test coverage, add more sample values? That's what's
 [ScalaCheck][4] framework is for. Let's try to learn it by example.  
 First, add it to your dependencies:
 
-```scala
+```scala project.sbt
 libraryDependencies ++= Seq(
     "org.scalacheck" %% "scalacheck" % "1.10.1" % "test",
     "org.specs2" %% "specs2" % "1.14" % "test"
@@ -231,7 +233,7 @@ libraryDependencies ++= Seq(
 Specs2 provides nice integration with ScalaCheck, we have to import it
 and mixin to our spec, so we are able to use helpers in our specs:
 
-```scala
+```scala src/test/scala/CalculatorSpec.scala
 import org.specs2.ScalaCheck
 
 class CalculatorSpec extends Specification with ScalaCheck {
@@ -241,10 +243,10 @@ Good. Let's write our first property. What about following -
 Calculator.sum should return sum of two numbers it receives as
 arguments:
 
-```scala 
+```scala src/test/scala/CalculatorSpec.scala
   "Calculator properties" should {
     "add" in prop { (x: Int, y: Int) =>
-      Calculator.add(x, y) must_== x %2B y
+      Calculator.add(x, y) must_== x + y
     }
   }
 ```
@@ -260,7 +262,7 @@ generated input values which could help us discover that. But, as we're
 just learning, let's go to something more obvious - for example,
 division: 
 
-```scala
+```scala src/test/scala/CalculatorSpec.scala
     "divide" in prop { (x: Int, y: Int) =>
       Calculator.divide(x, y) must_== x / y
     }
@@ -271,7 +273,7 @@ different ways of handling this. Let's imagine that we say 'we never
 pass 0 as second argument to division, so we don't care what happens
 there'. It can be easily done with ScalaCheck:
 
-```scala
+```scala src/test/scala/CalculatorSpec.scala
     "divide" in prop { (x: Int, y: Int) => (y != 0) ==> (
       Calculator.divide(x, y) must_== x / y
     )}
@@ -287,8 +289,7 @@ That was rather a big post. Hopefully, you have some insight on Scala
 infrastructure and building. You can try it on your own, or have a look
 at [GitHub repository][5]. Next time lets do our WAAS!
 
- [1]:
-http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees
+ [1]: http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees
  [2]: http://www.naildrivin5.com/scalatour
  [3]: http://www.scala-sbt.org/
  [4]: https://github.com/rickynils/scalacheck

@@ -4,6 +4,9 @@ title: "More slides"
 date: 2013-04-05
 comments: true
 categories: 
+ - functional programming
+ - Scala
+ - slides
 ---
 Here are my slides from presentation I gave to local JUG - introduction
 to Scala

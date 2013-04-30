@@ -4,6 +4,10 @@ title: "Presentations"
 date: 2013-03-29 11:15
 comments: true
 categories: 
+ - CQRS
+ - DDD
+ - Event Sourcing
+ - slides
 ---
 I want to share two presentations I gave to my coworkers. They cover
 concepts I'm actively learning right now - Domain Driven Design,

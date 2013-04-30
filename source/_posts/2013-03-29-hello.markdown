@@ -4,6 +4,7 @@ title: "Hello, World!"
 date: 29.03.2013
 comments: true
 categories: 
+ - introduction
 ---
 Let me introduce myself.  
 
