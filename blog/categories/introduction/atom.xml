@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: introduction | Blog about sofware development]]></title>
+  <link href="http://ytaras.github.io/blog/categories/introduction/atom.xml" rel="self"/>
+  <link href="http://ytaras.github.io/"/>
+  <updated>2013-05-01T01:43:21+03:00</updated>
+  <id>http://ytaras.github.io/</id>
+  <author>
+    <name><![CDATA[Yura Taras]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Hello, World!]]></title>
+    <link href="http://ytaras.github.io/blog/2013/03/29/hello/"/>
+    <updated>2013-03-29T00:00:00+02:00</updated>
+    <id>http://ytaras.github.io/blog/2013/03/29/hello</id>
+    <content type="html"><![CDATA[<p>Let me introduce myself.</p>
+
+<p>My name is Yuriy, I live in Lviv, Ukraine, and I'm a software developer.</p>
+
+<p>I've tried to pick up a title for me for a while and I didn't come with
+anything better than 'software developer' - I don't want to tie myself
+to things like 'coder', 'tech lead', 'scrum master' or anything similar
+- still I was in all that shoes in my career.</p>
+
+<p>My first commercial job was a Perl coder in 2004 in small outsourcing
+company in Ternopil, Ukraine. From there I've switched to Java and now
+to Ruby development. Still, that's not a thing I'm really proud about
+and which I want to share.</p>
+
+<p>I would like to write in this blog about modern tools and languages -
+especially languages, as I consider learning new programming language as
+the most exiting part of a software development. I hope to write about
+Scala, Ruby, Haskell - but not limited to ones. Also I'm interested
+about bigger things - as long as they are still technical. That said, I
+hope to cover software architecture and system architecture in my posts.</p>
+
+<p>I don't consider this blog as a place for me to share my personal
+things. I don't think people that came here to read about, say, Scala,
+would care how did I spend my weekends - did I go caving or skiing or
+mountain tracking (still this is a usual way for me to spend a weekend).
+So don't be afraid to add it to your RSS reader - no porn, no kitties,
+no photos with my family. Only software development, only hardcore.<br/>
+And the last thing I'm going to write about in this post is to answer a
+question - why do I want to have this blog in a first place? Answer is
+simple - writing about things helps to organize you minds and knowledge
+about that things. Of course, knowing that the blog is useful to someone
+would be a great encouragement.</p>
+
+<p>So now lets click Publish - and see what happens next. I hope it will be
+something exciting :)</p>
+]]></content>
+  </entry>
+  
+</feed>

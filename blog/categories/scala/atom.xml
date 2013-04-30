@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Scala | Blog about sofware development]]></title>
+  <link href="http://ytaras.github.io/blog/categories/scala/atom.xml" rel="self"/>
+  <link href="http://ytaras.github.io/"/>
+  <updated>2013-05-01T01:43:21+03:00</updated>
+  <id>http://ytaras.github.io/</id>
+  <author>
+    <name><![CDATA[Yura Taras]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Scala Workshop - day 0]]></title>
+    <link href="http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/"/>
+    <updated>2013-04-29T00:00:00+03:00</updated>
+    <id>http://ytaras.github.io/blog/2013/04/29/scala_workshop_0</id>
+    <content type="html"><![CDATA[<p>I love Scala. It's combines goodies from JVM and Java infrastructure,
+Haskell and dynamic languages like Ruby - and it almost doesn't inherit
+Java programming language deceases.</p>
+
+<p>Anyway, I always wanted to create some end-to-end project using Scala
+technologies - but never did as  I'm working with completely different
+technology set. So, I decided to come up with some fake business need
+and implement it. I'm going to use interesting libraries like Akka and
+Scalaz in that task, God help me! I'm going to describe things step by
+step so people with no experience in Scala can pick it up and proceed
+with me.</p>
+
+<p>Here are things I want to try in this project:</p>
+
+<ul>
+<li>Scala parser combinators</li>
+<li>Explicit error handling with Scalaz</li>
+<li>MongoDB with Casbah</li>
+<li>Functional dependency injection via implicit parameters</li>
+<li>Properties checking with ScalaCheck</li>
+<li>Concurrency with Akka actors</li>
+<li>RIA with Play2 or Lift or JS/Scalatra - yet to decide</li>
+</ul>
+
+
+<p>I'm also going to focus more on functional side of Scala as I see it.</p>
+
+<!-- more -->
+
+
+<h2>Goal</h2>
+
+<p>I've come with following fake 'business idea': we'll be building a
+service, which provides workflow capabilities. You should be able to
+submit workflow definitions in textual format and after that create some
+objects, assign them to workflows and traverse them from step to step. I
+foresee a lot of users working with that service, so I want to do that
+as scalable as I can. I will call that stuff WAAS -
+Workflow-as-a-Service, just because W-buzzword isn't taken yet.</p>
+
+<p>You see what I'm doing here - I just came up with a task which requires
+Web, parsing, scalability and persistence. Hopefully it will help me and
+you to put different pieces of Scala infrastructure together.</p>
+
+<h2>What you should know</h2>
+
+<p>You should be familiar with Scala syntax - at least not scared with it.
+I'm not going to explain, what a <code>trait</code>, <code>val</code> or <code>def</code> keyword means.
+If you want to read some introductory stuff - I can recommend  <a href="http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees">Scala for Java refugees</a> or <a href="http://www.naildrivin5.com/scalatour">Another tour of Scala</a>.</p>
+
+<h2>Starting</h2>
+
+<p>If you are familiar with Scala infrastructure, you may skip the rest of
+this post - I will talk a bit about SBT and Specs2 here.</p>
+
+<p>So, de-facto standard in building Scala project is <a href="http://www.scala-sbt.org/">Simple Build
+Tool</a>. Go ahead and install it using site instructions. Also I
+recommend to install JDK 7 - either OpenJDK or Oracle one. Once you've
+done, you should be able to launch sbt:</p>
+
+<p><code>
+$ sbt
+Detected sbt version 0.12.2
+Starting sbt: invoke with -help for other options
+/home/ytaras/projects/scala/waas_blog doesn't appear to be an sbt
+project.
+If you want to start sbt anyway, run:
+  /home/ytaras/bin/sbt -sbt-create
+</code></p>
+
+<p>Nice! It says we don't have a project definition here, so we should go
+ahead and create one:</p>
+
+<p>```
+$ mkdir project                                                                                                                               <br/>
+$ cat > project.sbt
+scalaVersion := "2.10.1"</p>
+
+<p>resolvers ++= Seq("snapshots" at
+"http://oss.sonatype.org/content/repositories/snapshots",</p>
+
+<pre><code>              "releases"  at
+</code></pre>
+
+<p>"http://oss.sonatype.org/content/repositories/releases")
+^C
+```</p>
+
+<p>Now you should be able to run <code>sbt console</code> and get Scala console
+running. It can take some time as it downloads Scala 2.10.1 binaries. <br/>
+So far we didn't do anything interesting - we just specified Scala
+version to use and added few OSS repositories to be able to access most
+Scala libs in future. Now lets try some TDD cycle.</p>
+
+<p>After trying Scala test frameworks my personal faworite is Specs2
+mutable specifications. Even if it is said that default BDD specs should
+be preferred over mutable ones, it goes much closer to my JUnit and
+RSpec experience and also has nice integration with some other libs. If
+you think I'm wrong and I should use something else, please use the
+GitHub link I will give in the end of this post and send me a pull
+request with specs written with your favorite framework - or at least
+write down your comments here.</p>
+
+<p>So, lets add Specs2 dependency to our project file:</p>
+
+<p>```scala project.sbt
+  libraryDependencies ++= Seq(</p>
+
+<pre><code>  "org.specs2" %% "specs2" % "1.14" % "test"
+</code></pre>
+
+<p>  )
+```</p>
+
+<p>If you are familiar with Maven or Apache Ivy, you can get whats going on
+here - you're specifying a group, lib and version and put that into
+'test' configuration. Notice that double % is not a typo - it's a SBT
+hack to overcome Scala's binary incompatibility between versions. Long
+story short, every Scala lib tends to have compiled versions for every
+recent Scala version and %% operator picks one based on the current
+Scala you are running on.</p>
+
+<p>If you have SBT console (that one, which is opened with <code>sbt</code> command,
+not a Scala console, which is issued by <code>sbt console</code>), you can hit
+<code>reload</code> there to pick up new project definition. If not - you can just
+open new SBT shell and will be done for you. Now try typing <code>test</code> into
+SBT console - it will download binaries if needed, try to compile
+non-existing product and test files and will gracefully shut down with
+message about no found tests. Nice! This is your first green build. It
+is said, that ideal code is no code, so now you have ideal project done
+:)</p>
+
+<p>Now let's start continuous testing - run <code>~ test</code> in SBT shell. It will
+monitor your source files and relaunch test suite once you saved your
+code. Let's add first test file <code>src/test/scala/CalculatorSpec.scala</code></p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala
+import org.specs2.mutable._</p>
+
+<p>class CalculatorSpec extends Specification {
+}
+```</p>
+
+<p>Nothing special is going on here - adding necessary imports and
+extending specific class. Let's add a first specification. Scala
+features made possible fluent specs declarations similar to RSpec:</p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala
+  "Native scala operations" should {</p>
+
+<pre><code>"add" in { 2 + 2 must_== 4 }
+"subtract" in { 5 - 4 must_== 1 }
+"mutliply" in { 3 * 4 must_== 12 }
+"divide" in { 10 / 2 must_== 5 }
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>When you save file you should notice pretty-printed specs with success
+message. As a side-note, what we done here is a useful TDD technical
+which I call 'wrapping 3rdparty object' (if you know widely adopted
+name, please let me know). Idea here is that we write unit tests for
+3rd-party components, which we don't write and control, to ensure our
+expectation matches it's real behavior. I don't say you should test all
+standard lib or operators as I do here, but it may help you if you
+unsure what some specific method does in 3rd party library - write down
+a test, make it pass and submit it to your SCM. If version upgrade will
+break your expectations (and possibly your code) you will be notified
+immediately.</p>
+
+<p>But enough theory. Let's create a calculator - it's a common showcase
+for TDD.</p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala
+  "Calculator" should {</p>
+
+<pre><code>"add" in { Calculator.add(3, 3) must_== 6 }
+"subtract" in { Calculator.subtract(10, 3) must_== 7 }
+"multiply" in { Calculator.multiply(5, 5) must_== 25 }
+"divide"   in { Calculator.divide(30, 3) must_== 10 }
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>That ugly API will be our calculator. If we have a glance at our SBT
+shell we'll notice compilation fails. so let's add calculator definition
+into <code>src/main/scala/Calculator.scala</code>:</p>
+
+<p><code>scala src/main/scala/Calculator.scala
+object Calculator {
+  def add(x: Int, y: Int): Int = ???
+  def subtract(x: Int, y: Int): Int = ???
+  def multiply(x: Int, y: Int): Int = ???
+  def divide(x: Int, y: Int): Int = ???
+}
+</code></p>
+
+<p>I really place all that ??? in my code, that's a Scala construct. Long
+story short, it's a placeholder for your implementation which has
+whatever type you specify but throws exception in runtime<br/>
+Scala has very powerful type systems - comparable to Haskell one's - so
+usually you make use of it and make sure a lot of errors are caught by
+compiler. Some techniques exists for that and I will mention them in
+future posts. Anyway, with TDD we want to do one step at a time, so ???
+placeholder allows to break Red-Green-Refactor cycle into
+Red-Compiles-Green-Refactor. Using that in adding 2 integers doesn't
+make too much sense, but if we're playing with more complex types
+(especially monadic ones) this technique becomes useful.<br/>
+If you have a look at SBT console, you'll notice we moved to Compiles
+stage - tests are executed, but exception is thrown. Nice. Let's use
+'obvious implementation' and add, well, obvious implementation for all 4
+methods:</p>
+
+<p><code>scala src/main/scala/Calculator.scala
+object Calculator {
+  def add(x: Int, y: Int) = x + y
+  def subtract(x: Int, y: Int) = x - y
+  def multiply(x: Int, y: Int) = x * y
+  def divide(x: Int, y: Int) = x / y
+}
+</code></p>
+
+<p>I no longer need explicit return types as they are easily inferred out
+by a compiler. And... Tadam! We're Green - and looks like there's no
+need for refactoring.</p>
+
+<p>Anyway, currently are testing only against specific values. Is there a
+way to improve a test coverage, add more sample values? That's what's
+<a href="https://github.com/rickynils/scalacheck">ScalaCheck</a> framework is for. Let's try to learn it by example.<br/>
+First, add it to your dependencies:</p>
+
+<p>```scala project.sbt
+libraryDependencies ++= Seq(</p>
+
+<pre><code>"org.scalacheck" %% "scalacheck" % "1.10.1" % "test",
+"org.specs2" %% "specs2" % "1.14" % "test"
+</code></pre>
+
+<p>)
+```</p>
+
+<p>Specs2 provides nice integration with ScalaCheck, we have to import it
+and mixin to our spec, so we are able to use helpers in our specs:</p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala
+import org.specs2.ScalaCheck</p>
+
+<p>class CalculatorSpec extends Specification with ScalaCheck {
+```</p>
+
+<p>Good. Let's write our first property. What about following -
+Calculator.sum should return sum of two numbers it receives as
+arguments:</p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala
+  "Calculator properties" should {</p>
+
+<pre><code>"add" in prop { (x: Int, y: Int) =&gt;
+  Calculator.add(x, y) must_== x + y
+}
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>If we save a file now, we'll notice that result run has 108 expectations
+- this is because ScalaCheck generated 100 pairs of ints and verified if
+  satisfies specified property. Thanks to explicit's black magic we can
+use either boolean comparisons <code>x == y</code> or Specs2 matchers <code>x must_== y</code>
+whichever suits better. Notice - we still haven't discovered integer
+overflow here, just because we didn't write correct assertions, for
+example that sum of positives is positive; but framework silently
+generated input values which could help us discover that. But, as we're
+just learning, let's go to something more obvious - for example,
+division:</p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala</p>
+
+<pre><code>"divide" in prop { (x: Int, y: Int) =&gt;
+  Calculator.divide(x, y) must_== x / y
+}
+</code></pre>
+
+<p>```</p>
+
+<p>If we try to run this, it will fail because of zero-division. There are
+different ways of handling this. Let's imagine that we say 'we never
+pass 0 as second argument to division, so we don't care what happens
+there'. It can be easily done with ScalaCheck:</p>
+
+<p>```scala src/test/scala/CalculatorSpec.scala</p>
+
+<pre><code>"divide" in prop { (x: Int, y: Int) =&gt; (y != 0) ==&gt; (
+  Calculator.divide(x, y) must_== x / y
+)}
+</code></pre>
+
+<p>```</p>
+
+<p>If you are scared by lot of ascii symbols and extra parenthesis - I
+encourage you to read ScalaCheck user guide, which is a really nice
+description how to write properties. If not - just believe me that this
+property can be read as <em>for any pair of integer such that second
+integer is not zero, following property is true</em></p>
+
+<p>That was rather a big post. Hopefully, you have some insight on Scala
+infrastructure and building. You can try it on your own, or have a look
+at <a href="https://github.com/ytaras/scala_waas/commits/day0">GitHub repository</a>. Next time lets do our WAAS!</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[More slides]]></title>
+    <link href="http://ytaras.github.io/blog/2013/04/05/slides/"/>
+    <updated>2013-04-05T00:00:00+03:00</updated>
+    <id>http://ytaras.github.io/blog/2013/04/05/slides</id>
+    <content type="html"><![CDATA[<p>Here are my slides from presentation I gave to local JUG - introduction
+to Scala</p>
+
+<iframe
+src="https://docs.google.com/presentation/d/1_j0lnzS3Ez4gnrYM3T9kpMeTbeAMHrgxuKSy5E8c1kE/embed?start=false&loop=false&delayms=3000"
+frameborder="0" width="480" height="389" allowfullscreen="true"
+mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+
+]]></content>
+  </entry>
+  
+</feed>
