@@ -14,7 +14,7 @@ Java programming language deceases.
 
 Anyway, I always wanted to create some end-to-end project using Scala
 technologies - but never did as  I'm working with completely different
-technology set. So, I decided to come up with some fake business need
+technology set. So, I decided to come up with some fake business idea
 and implement it. I'm going to use interesting libraries like Akka and
 Scalaz in that task, God help me! I'm going to describe things step by
 step so people with no experience in Scala can pick it up and proceed
@@ -54,11 +54,11 @@ If you want to read some introductory stuff - I can recommend  [Scala for Java r
 ## Starting
 
 If you are familiar with Scala infrastructure, you may skip the rest of
-this post - I will talk a bit about SBT and Specs2 here. 
+this post - I will talk a bit about SBT, Specs2 and ScalaCheck here. 
 
-So, de-facto standard in building Scala project is [Simple Build
-Tool][3]. Go ahead and install it using site instructions. Also I
-recommend to install JDK 7 - either OpenJDK or Oracle one. Once you've
+So, de-facto standard in building Scala project is [Simple Build Tool][3].
+Go ahead and install it using site instructions. Also I
+recommend to install JDK 7 - OpenJDK or Oracle. Once you've
 done, you should be able to launch sbt:
 
 ```
@@ -75,32 +75,26 @@ Nice! It says we don't have a project definition here, so we should go
 ahead and create one:
 
 ```
-$ mkdir project                                                                                                                                 
+$ mkdir project
 $ cat > project.sbt
 scalaVersion := "2.10.1"
 
-resolvers ++= Seq("snapshots" at
-"http://oss.sonatype.org/content/repositories/snapshots",
-                  "releases"  at
-"http://oss.sonatype.org/content/repositories/releases")
+resolvers ++= Seq("snapshots" at "http://oss.sonatype.org/content/repositories/snapshots",
+                  "releases"  at "http://oss.sonatype.org/content/repositories/releases")
 ^C
 ```
 
 Now you should be able to run `sbt console` and get Scala console
-running. It can take some time as it downloads Scala 2.10.1 binaries.   
+running. It can take some time as it downloads Scala 2.10.1 binaries. 
 So far we didn't do anything interesting - we just specified Scala
 version to use and added few OSS repositories to be able to access most
 Scala libs in future. Now lets try some TDD cycle. 
 
-After trying Scala test frameworks my personal faworite is Specs2
-mutable specifications. Even if it is said that default BDD specs should
-be preferred over mutable ones, it goes much closer to my JUnit and
-RSpec experience and also has nice integration with some other libs. If
-you think I'm wrong and I should use something else, please use the
-GitHub link I will give in the end of this post and send me a pull
-request with specs written with your favorite framework - or at least
-write down your comments here. 
-
+After trying Scala test frameworks my personal favorite is Specs2
+mutable specifications. Even if it is said that default BDD approach
+for Spec2 should be preferred over unit testing, it goes much closer to my JUnit and
+RSpec experience but still has nice integration with some other libs.
+ 
 So, lets add Specs2 dependency to our project file:
 
 ```scala project.sbt
@@ -140,7 +134,7 @@ class CalculatorSpec extends Specification {
 
 Nothing special is going on here - adding necessary imports and
 extending specific class. Let's add a first specification. Scala
-features made possible fluent specs declarations similar to RSpec:
+language features made possible fluent specs declarations similar to RSpec:
 
 ```scala src/test/scala/CalculatorSpec.scala
   "Native scala operations" should {
@@ -152,12 +146,12 @@ features made possible fluent specs declarations similar to RSpec:
 ```
 
 When you save file you should notice pretty-printed specs with success
-message. As a side-note, what we done here is a useful TDD technical
+message. As a side-note, what we done here is a useful TDD technique
 which I call 'wrapping 3rdparty object' (if you know widely adopted
 name, please let me know). Idea here is that we write unit tests for
 3rd-party components, which we don't write and control, to ensure our
 expectation matches it's real behavior. I don't say you should test all
-standard lib or operators as I do here, but it may help you if you
+standard lib as I do here, but it may help you if you
 unsure what some specific method does in 3rd party library - write down
 a test, make it pass and submit it to your SCM. If version upgrade will
 break your expectations (and possibly your code) you will be notified
@@ -177,7 +171,7 @@ for TDD.
     
 
 That ugly API will be our calculator. If we have a glance at our SBT
-shell we'll notice compilation fails. so let's add calculator definition
+shell we'll notice compilation fails. So let's add calculator definition
 into `src/main/scala/Calculator.scala`:
 
 ```scala src/main/scala/Calculator.scala
@@ -253,12 +247,12 @@ arguments:
 
 If we save a file now, we'll notice that result run has 108 expectations
 - this is because ScalaCheck generated 100 pairs of ints and verified if
-  satisfies specified property. Thanks to explicit's black magic we can
+  satisfies specified property. Thanks to implicit's black magic we can
 use either boolean comparisons `x == y` or Specs2 matchers `x must_== y`
 whichever suits better. Notice - we still haven't discovered integer
 overflow here, just because we didn't write correct assertions, for
 example that sum of positives is positive; but framework silently
-generated input values which could help us discover that. But, as we're
+generated those edge case values for us. But, as we're
 just learning, let's go to something more obvious - for example,
 division: 
 
@@ -279,15 +273,19 @@ there'. It can be easily done with ScalaCheck:
     )}
 ```
 
-If you are scared by lot of ascii symbols and extra parenthesis - I
+If you are scared by lot of ASCII symbols and extra parenthesis - I
 encourage you to read ScalaCheck user guide, which is a really nice
 description how to write properties. If not - just believe me that this
 property can be read as _for any pair of integer such that second
 integer is not zero, following property is true_
 
-That was rather a big post. Hopefully, you have some insight on Scala
+That was rather a big post, so I have to wrap up. Hopefully, you have some insight on Scala
 infrastructure and building. You can try it on your own, or have a look
-at [GitHub repository][5]. Next time lets do our WAAS!
+at [GitHub repository][5]. Also I encourage you to write comments either
+here or at GitHub or send to me via Google+. 
+
+Next time lets do our WAAS and start from parsing workflow definition
+files. Stay tuned!
 
  [1]: http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees
  [2]: http://www.naildrivin5.com/scalatour
