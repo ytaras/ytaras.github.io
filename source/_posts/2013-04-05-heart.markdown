@@ -1,0 +1,262 @@
+---
+layout: post
+title: "Heart of a Functional programming"
+date: 2013-04-05
+comments: true
+categories: 
+ - functional programming
+---
+## Intro
+Every functional programmer should write an article about what FP is at
+all and I'm not an exception. Next step should be another monad tutorial
+- and it's still on it's way.
+
+## Introduction to functional programming
+
+So, what is functional programming at all? Actually, there's a lot of
+mess about that - functional programming, functional language,
+functional features are different things, even if these terms are
+sometimes confused one with another. For example, I even heard that
+JavaScript is a functional language as it's allows passing functions as
+parameters:
+```javascript example.js http://en.wikipedia.org/wiki/Higher-order_function Wikipedia
+function ArrayForEach(array, func) {
+  for (var i = 0; i < array.length; i++) {
+    if (i in array) {
+      func(array[i]);
+    }
+  }
+}
+
+function log(msg) {
+  console.log(msg);
+}
+
+ArrayForEach([1,2,3,4,5], log);
+```
+
+So, let's put a couple of definition:
+
+* Functional language is a programming language which enables,
+encourages or even enforces functional programming.
+* Functional features are features of a programming language or a
+library, which makes functional programming easier
+* Functional programming is... well, let's talk about that below
+
+A functional language as a tool use functional features to make using
+functional programming as a paradigm easier; and we can use those
+definitions to determine if some programming language is a functional
+language or not. Whew, enough of F-word :)
+
+But we have one more definition to fill up - functional programming or
+functional paradigm (FP). This is done by contrast usually and I will
+follow that path, but with one small deviation. Usually FP is being
+compared to imperative programming whatever it means. Also is being said
+that FP and OOP are orthogonal and don't deny each other. I'm going to
+argue with that. So, before going to FP lang, let's see what we have in
+OOP.
+<!-- more -->
+## OOP reprise
+
+Here's a definition given by Alan Key:
+
+{% blockquote Alan Key http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented %}
+1. Everything is an object.
+2. Objects communicate by sending and receiving messages (in terms of objects).
+3. Objects have their own memory (in terms of objects).
+4. Every object is an instance of a class (which must be an object).
+5. The class holds the shared behavior for its instances (in the form of objects in a program list)
+{% endblockquote %} 
+
+What's interesting here is #2 and #3. Objects communicate by sending and
+receiving objects, for example:
+``` ruby
+  result = person.send :full_name
+```
+
+That's valid Ruby code, which sends a message `full_name` to object
+`user` and writes response to `result` variable. Of course, there's a
+shorter version, which is in fact a syntactic sugar:
+
+```ruby
+  result = person.full_name
+```
+
+It doesn't matter if we're talking about static or dynamic languages,
+Java, C#, Ruby, Smalltalk or Python - every method call can be presented
+as sending a message. We can see simplest basic blocks of OOP are
+objects and messages aka methods.
+
+Looks like it's easy with #2, but what about #3? It says every object
+has it's own memory (which can be revealed only by sending and received
+messages, by the way). In example before object's memory contains,
+probably, last and first names of a person. But what's not said here -
+can incoming message mutate internal state of an object? Is following
+code valid?
+
+```ruby
+class User
+def update_last_name(name)
+  @last_name = name # Updating internal state here
+  # For Java programmers:
+  # @ just means instance variable - or a field in Java terms
+end
+def full_name
+  @first_name + " " + @last_name
+end
+  # Other stuff...
+end
+u = User.new("John", "Smith")
+puts u.send :full_name # John Smith
+u.send :update_last_name, "Snow"
+puts u.send :full_name # John Snow
+```
+
+Most of the time programming language designers answer 'Yes' to that
+question. Python, JavaScript, C#, Java, Ruby, Smalltalk - all of them
+accept objects mutability despite of the differences in those language
+implementations. In fact, it comes implicitly from a definition - Alan
+Key used a word 'memory', so it implies that object can 'remember' what
+happened with it before - and this is a mutability.
+
+## Other look
+
+FP doesn't give another answer to 'internal state mutability' question
+because FP doesn't speak in terms of objects and messages, but if it
+would we would say 'no, objects are not allowed to change it's state
+once the are created'. If you haven't heard about that before and can
+bring only one item out of this article - let it be this one:
+
+_Functional programming is a programming using immutable data
+structures and immutable references_
+
+This is not accurate and not full definition of FP - but I consider this
+as most important part of a paradigm. FP is an art of restricting
+yourself to immutable things - and all other stuff comes from that.
+Let's see, if we can still write meaningful things without
+mutability.
+
+Smallest building block in FP is a pure function. There's a lot of smart
+words around that - [referential transparrency](http://en.wikipedia.org/wiki/Referential_transparency_(computer_science\))
+ or [morphism](http://en.wikipedia.org/wiki/Morphism), but in simple words pure function is a
+plain old programming function, which has 2 properties:
+
+1. It's result depends only on input parameters
+2. It's only job is to calculate it's result, it does nothing else - in
+other words, it doesn't have side effects.
+
+I'm sure you uderstood already what pure function is, but let's have
+some examples:
+
+```java
+Random random = new Random();
+random.nextInt();
+// is not a pure function as it's result is not determined by its
+// parameters, but by internal state of a random generator
+int char = System.in.read()
+// is not a pure function as well, as it's result
+// is determined by user input
+System.out.println("Hello, World")
+// miss. It's not a pure function, it's not a function at all,
+// as it doesn't return any result. Anyway, even if it would
+// return something, still it has side effects - output
+// in console, so it doesn't satisfy pure function definition.
+String.valueOf(1);
+// finally we have a pure function here - valueOf depends
+// only on a input param and does nothing on the outside.
+int l = "Some string".length();
+// this is a pure function as well, even if we're writing
+// it using object notation.
+```
+
+Let's have few extra words about last case. As I said before, we can say
+it's sending a message 'length' to object "Some string", but on the
+other side, there's nothing wrong in looking on it as a function length
+with one parameter "Some string". A fact that strings are immutable in
+Java helps in that paradigm shift a lot.
+
+```java
+int l = FunctionalStringUtils.length("Some string");
+// There's always same result for same string!
+// And it doesn't change anything in other parts of a program
+```
+
+Let's add this to our definitions:
+
+_Functional programming is a programming using only immutable
+references/data structures and pure functions_
+
+## So what?
+
+Ok, forbidden ourselfves to use mutations, we forgot about objects and
+messages and we are using functions instead - for what? Why on Earth
+would I use only a subset of possible ways to express a logic of a
+program? Why should I restrict myself to writing only pure functions?
+
+Think about the following:
+
+Only thing that interests us with pure function is it's result. In fact,
+we can replace call to pure function with it's result value - and it
+won't change what our program does. By the way, this property is called
+referential transparency.
+
+But there's a lot of options for you to get the result value. You can
+calculate result during compilation if you know function arguments in
+compile time. Or in another thread. Or in another process. Or at another
+machine. Or you can not calculate the value before it's really needed.
+Or you can cache the value and return result from cache for same
+function arguments.
+
+Oh, by the way, did I mention multithreading? Usually it's almost
+physical pain to debug a mutlithreaded program build in conventional
+way. FP changes that - doesn't matter which thread executed the specific
+function or if it executed at all. In fact, there are prototypes of
+automatic program paralellization. Think about that - program which
+knows nothing about multithreading at all, can be run in mutlithreading
+environment.
+
+## Doing mutations
+
+Ok, but what if we need mutations? What do we do to change last name of
+existing user?
+
+Well, we don't. Instead of destructive updates - we copy to new instance
+every time we need to change something:
+```ruby
+u = {first_name: "John", last_name: "Smith"}
+puts full_name(u) # Jonh Smith
+u1 = update_last_name(u, "Snow")
+# Instead of changing user object, we return an updated copy of it
+puts full_name(u1) # John Snow
+puts full_name(u) # John Smith
+```
+
+That looks like a huge waste of resources - when we are changing things
+a lot, we're going to have a lot of copies in our memory. Anyway, fact
+that all our data structures are immutable, opens a door for some
+optimizations which can be done by compiler or runtime, for example you
+can reuse structures or it's parts in different places. Because things
+are immutable, we can not fear one part of our program impacting other
+by implicitly changing state of a shared structure.
+
+With that whole class of concurrency problems just go away, so using
+immutable structures is a good idea not only in FP, but in OOP as well -
+Joshua Bloch recommends "Minimize mutability" in his book [Effective Java](http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;lpg=PP1&amp;dq=joshua%20bloch%20effective%20java&amp;hl=uk&amp;pg=PA73#v=snippet&amp;q=immutable&amp;f=false)
+
+## FP distilled
+
+So, we have immutable structures and pure functions - and those are
+building blocks in FP. If you restrict yourself to this things - you're
+doing FP, if you relax a restriction and doing some other things -
+you're outside of FP land.
+
+Also notice we've lost notice of objects and messages - we don't need
+them anymore. As I said before, it's just a matter of syntax - do we put
+first argument first or after function name:
+
+In FP we don't mix data and behavior inside of our objects, instead we
+have them split in different places - our data structures are skinny and
+contain only data and our functions work with every argument they are
+provided with - if it conform some preconditions, of course. Note, we
+haven't talked about types yet - but we're going to do that in next
+parts of a series.

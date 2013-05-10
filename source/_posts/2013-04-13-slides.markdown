@@ -1,0 +1,17 @@
+---
+layout: post
+title: "More slides"
+date: 2013-04-05
+comments: true
+categories: 
+ - functional programming
+ - Scala
+ - slides
+---
+Here are my slides from presentation I gave to local JUG - introduction
+to Scala
+
+<iframe
+src="https://docs.google.com/presentation/d/1_j0lnzS3Ez4gnrYM3T9kpMeTbeAMHrgxuKSy5E8c1kE/embed?start=false&loop=false&delayms=3000"
+frameborder="0" width="480" height="389" allowfullscreen="true"
+mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
