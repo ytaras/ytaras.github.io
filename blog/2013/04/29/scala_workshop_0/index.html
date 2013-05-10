@@ -1,0 +1,640 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Scala Workshop - day 0 - Blog about sofware development</title>
+  <meta name="author" content="Yura Taras">
+
+  
+  <meta name="description" content="I love Scala. It&#8217;s combines goodies from JVM and Java infrastructure,
+Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://ytaras.github.io/blog/2013/04/29/scala_workshop_0">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Blog about sofware development" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-40546379-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Blog about sofware development</a></h1>
+  
+    <h2>Something should be here</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:ytaras.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Scala Workshop - Day 0</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-04-29T00:00:00+03:00" pubdate data-updated="true">Apr 29<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>I love Scala. It&#8217;s combines goodies from JVM and Java infrastructure,
+Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t inherit
+Java programming language deceases.</p>
+
+<p>Anyway, I always wanted to create some end-to-end project using Scala
+technologies - but never did as  I&#8217;m working with completely different
+technology set. So, I decided to come up with some fake business idea
+and implement it. I&#8217;m going to use interesting libraries like Akka and
+Scalaz in that task, God help me! I&#8217;m going to describe things step by
+step so people with no experience in Scala can pick it up and proceed
+with me.</p>
+
+<p>Here are things I want to try in this project:</p>
+
+<ul>
+<li>Scala parser combinators</li>
+<li>Explicit error handling with Scalaz</li>
+<li>MongoDB with Casbah</li>
+<li>Functional dependency injection via implicit parameters</li>
+<li>Properties checking with ScalaCheck</li>
+<li>Concurrency with Akka actors</li>
+<li>RIA with Play2 or Lift or JS/Scalatra - yet to decide</li>
+</ul>
+
+
+<p>I&#8217;m also going to focus more on functional side of Scala as I see it.</p>
+
+<!-- more -->
+
+
+<h2>Goal</h2>
+
+<p>I&#8217;ve come with following fake &#8216;business idea&#8217;: we&#8217;ll be building a
+service, which provides workflow capabilities. You should be able to
+submit workflow definitions in textual format and after that create some
+objects, assign them to workflows and traverse them from step to step. I
+foresee a lot of users working with that service, so I want to do that
+as scalable as I can. I will call that stuff WAAS -
+Workflow-as-a-Service, just because W-buzzword isn&#8217;t taken yet.</p>
+
+<p>You see what I&#8217;m doing here - I just came up with a task which requires
+Web, parsing, scalability and persistence. Hopefully it will help me and
+you to put different pieces of Scala infrastructure together.</p>
+
+<h2>What you should know</h2>
+
+<p>You should be familiar with Scala syntax - at least not scared with it.
+I&#8217;m not going to explain, what a <code>trait</code>, <code>val</code> or <code>def</code> keyword means.
+If you want to read some introductory stuff - I can recommend  <a href="http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees">Scala for Java refugees</a> or <a href="http://www.naildrivin5.com/scalatour">Another tour of Scala</a>.</p>
+
+<h2>Starting</h2>
+
+<p>If you are familiar with Scala infrastructure, you may skip the rest of
+this post - I will talk a bit about SBT, Specs2 and ScalaCheck here.</p>
+
+<p>So, de-facto standard in building Scala project is <a href="http://www.scala-sbt.org/">Simple Build Tool</a>.
+Go ahead and install it using site instructions. Also I
+recommend to install JDK 7 - OpenJDK or Oracle. Once you&#8217;ve
+done, you should be able to launch sbt:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ sbt
+</span><span class='line'>Detected sbt version 0.12.2
+</span><span class='line'>Starting sbt: invoke with -help for other options
+</span><span class='line'>/home/ytaras/projects/scala/waas_blog doesn't appear to be an sbt
+</span><span class='line'>project.
+</span><span class='line'>If you want to start sbt anyway, run:
+</span><span class='line'>  /home/ytaras/bin/sbt -sbt-create</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>Nice! It says we don&#8217;t have a project definition here, so we should go
+ahead and create one:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>$ mkdir project
+</span><span class='line'>$ cat &gt; project.sbt
+</span><span class='line'>scalaVersion := "2.10.1"
+</span><span class='line'>
+</span><span class='line'>resolvers ++= Seq("snapshots" at "http://oss.sonatype.org/content/repositories/snapshots",
+</span><span class='line'>                  "releases"  at "http://oss.sonatype.org/content/repositories/releases")
+</span><span class='line'>^C</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now you should be able to run <code>sbt console</code> and get Scala console
+running. It can take some time as it downloads Scala 2.10.1 binaries.
+So far we didn&#8217;t do anything interesting - we just specified Scala
+version to use and added few OSS repositories to be able to access most
+Scala libs in future. Now lets try some TDD cycle.</p>
+
+<p>After trying Scala test frameworks my personal favorite is Specs2
+mutable specifications. Even if it is said that default BDD approach
+for Spec2 should be preferred over unit testing, it goes much closer to my JUnit and
+RSpec experience but still has nice integration with some other libs.</p>
+
+<p>So, lets add Specs2 dependency to our project file:</p>
+
+<figure class='code'><figcaption><span>project.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
+</span><span class='line'>      <span class="s">&quot;org.specs2&quot;</span> <span class="o">%%</span> <span class="s">&quot;specs2&quot;</span> <span class="o">%</span> <span class="s">&quot;1.14&quot;</span> <span class="o">%</span> <span class="s">&quot;test&quot;</span>
+</span><span class='line'>  <span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>If you are familiar with Maven or Apache Ivy, you can get whats going on
+here - you&#8217;re specifying a group, lib and version and put that into
+&#8216;test&#8217; configuration. Notice that double % is not a typo - it&#8217;s a SBT
+hack to overcome Scala&#8217;s binary incompatibility between versions. Long
+story short, every Scala lib tends to have compiled versions for every
+recent Scala version and %% operator picks one based on the current
+Scala you are running on.</p>
+
+<p>If you have SBT console (that one, which is opened with <code>sbt</code> command,
+not a Scala console, which is issued by <code>sbt console</code>), you can hit
+<code>reload</code> there to pick up new project definition. If not - you can just
+open new SBT shell and will be done for you. Now try typing <code>test</code> into
+SBT console - it will download binaries if needed, try to compile
+non-existing product and test files and will gracefully shut down with
+message about no found tests. Nice! This is your first green build. It
+is said, that ideal code is no code, so now you have ideal project done
+:)</p>
+
+<p>Now let&#8217;s start continuous testing - run <code>~ test</code> in SBT shell. It will
+monitor your source files and relaunch test suite once you saved your
+code. Let&#8217;s add first test file <code>src/test/scala/CalculatorSpec.scala</code></p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">import</span> <span class="nn">org.specs2.mutable._</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">CalculatorSpec</span> <span class="k">extends</span> <span class="nc">Specification</span> <span class="o">{</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p></p>
+
+<p>Nothing special is going on here - adding necessary imports and
+extending specific class. Let&#8217;s add a first specification. Scala
+language features made possible fluent specs declarations similar to RSpec:</p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="s">&quot;Native scala operations&quot;</span> <span class="n">should</span> <span class="o">{</span>
+</span><span class='line'>    <span class="s">&quot;add&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span> <span class="n">must_==</span> <span class="mi">4</span> <span class="o">}</span>
+</span><span class='line'>    <span class="s">&quot;subtract&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="mi">5</span> <span class="o">-</span> <span class="mi">4</span> <span class="n">must_==</span> <span class="mi">1</span> <span class="o">}</span>
+</span><span class='line'>    <span class="s">&quot;mutliply&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="mi">3</span> <span class="o">*</span> <span class="mi">4</span> <span class="n">must_==</span> <span class="mi">12</span> <span class="o">}</span>
+</span><span class='line'>    <span class="s">&quot;divide&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="mi">10</span> <span class="o">/</span> <span class="mi">2</span> <span class="n">must_==</span> <span class="mi">5</span> <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>When you save file you should notice pretty-printed specs with success
+message. As a side-note, what we done here is a useful TDD technique
+which I call &#8216;wrapping 3rdparty object&#8217; (if you know widely adopted
+name, please let me know). Idea here is that we write unit tests for
+3rd-party components, which we don&#8217;t write and control, to ensure our
+expectation matches it&#8217;s real behavior. I don&#8217;t say you should test all
+standard lib as I do here, but it may help you if you
+unsure what some specific method does in 3rd party library - write down
+a test, make it pass and submit it to your SCM. If version upgrade will
+break your expectations (and possibly your code) you will be notified
+immediately.</p>
+
+<p>But enough theory. Let&#8217;s create a calculator - it&#8217;s a common showcase
+for TDD.</p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="s">&quot;Calculator&quot;</span> <span class="n">should</span> <span class="o">{</span>
+</span><span class='line'>    <span class="s">&quot;add&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="nc">Calculator</span><span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="mi">3</span><span class="o">,</span> <span class="mi">3</span><span class="o">)</span> <span class="n">must_==</span> <span class="mi">6</span> <span class="o">}</span>
+</span><span class='line'>    <span class="s">&quot;subtract&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="nc">Calculator</span><span class="o">.</span><span class="n">subtract</span><span class="o">(</span><span class="mi">10</span><span class="o">,</span> <span class="mi">3</span><span class="o">)</span> <span class="n">must_==</span> <span class="mi">7</span> <span class="o">}</span>
+</span><span class='line'>    <span class="s">&quot;multiply&quot;</span> <span class="n">in</span> <span class="o">{</span> <span class="nc">Calculator</span><span class="o">.</span><span class="n">multiply</span><span class="o">(</span><span class="mi">5</span><span class="o">,</span> <span class="mi">5</span><span class="o">)</span> <span class="n">must_==</span> <span class="mi">25</span> <span class="o">}</span>
+</span><span class='line'>    <span class="s">&quot;divide&quot;</span>   <span class="n">in</span> <span class="o">{</span> <span class="nc">Calculator</span><span class="o">.</span><span class="n">divide</span><span class="o">(</span><span class="mi">30</span><span class="o">,</span> <span class="mi">3</span><span class="o">)</span> <span class="n">must_==</span> <span class="mi">10</span> <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That ugly API will be our calculator. If we have a glance at our SBT
+shell we&#8217;ll notice compilation fails. So let&#8217;s add calculator definition
+into <code>src/main/scala/Calculator.scala</code>:</p>
+
+<figure class='code'><figcaption><span>src/main/scala/Calculator.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">object</span> <span class="nc">Calculator</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Int</span> <span class="o">=</span> <span class="o">???</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">subtract</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Int</span> <span class="o">=</span> <span class="o">???</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">multiply</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Int</span> <span class="o">=</span> <span class="o">???</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">divide</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">Int</span> <span class="o">=</span> <span class="o">???</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I really place all that ??? in my code, that&#8217;s a Scala construct. Long
+story short, it&#8217;s a placeholder for your implementation which has
+whatever type you specify but throws exception in runtime<br/>
+Scala has very powerful type systems - comparable to Haskell one&#8217;s - so
+usually you make use of it and make sure a lot of errors are caught by
+compiler. Some techniques exists for that and I will mention them in
+future posts. Anyway, with TDD we want to do one step at a time, so ???
+placeholder allows to break Red-Green-Refactor cycle into
+Red-Compiles-Green-Refactor. Using that in adding 2 integers doesn&#8217;t
+make too much sense, but if we&#8217;re playing with more complex types
+(especially monadic ones) this technique becomes useful.<br/>
+If you have a look at SBT console, you&#8217;ll notice we moved to Compiles
+stage - tests are executed, but exception is thrown. Nice. Let&#8217;s use
+&#8216;obvious implementation&#8217; and add, well, obvious implementation for all 4
+methods:</p>
+
+<figure class='code'><figcaption><span>src/main/scala/Calculator.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">object</span> <span class="nc">Calculator</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">subtract</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">y</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">multiply</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">divide</span><span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">y</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I no longer need explicit return types as they are easily inferred out
+by a compiler. And&#8230; Tadam! We&#8217;re Green - and looks like there&#8217;s no
+need for refactoring.</p>
+
+<p>Anyway, currently are testing only against specific values. Is there a
+way to improve a test coverage, add more sample values? That&#8217;s what&#8217;s
+<a href="https://github.com/rickynils/scalacheck">ScalaCheck</a> framework is for. Let&#8217;s try to learn it by example.<br/>
+First, add it to your dependencies:</p>
+
+<figure class='code'><figcaption><span>project.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
+</span><span class='line'>    <span class="s">&quot;org.scalacheck&quot;</span> <span class="o">%%</span> <span class="s">&quot;scalacheck&quot;</span> <span class="o">%</span> <span class="s">&quot;1.10.1&quot;</span> <span class="o">%</span> <span class="s">&quot;test&quot;</span><span class="o">,</span>
+</span><span class='line'>    <span class="s">&quot;org.specs2&quot;</span> <span class="o">%%</span> <span class="s">&quot;specs2&quot;</span> <span class="o">%</span> <span class="s">&quot;1.14&quot;</span> <span class="o">%</span> <span class="s">&quot;test&quot;</span>
+</span><span class='line'><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Specs2 provides nice integration with ScalaCheck, we have to import it
+and mixin to our spec, so we are able to use helpers in our specs:</p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">import</span> <span class="nn">org.specs2.ScalaCheck</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">CalculatorSpec</span> <span class="k">extends</span> <span class="nc">Specification</span> <span class="k">with</span> <span class="nc">ScalaCheck</span> <span class="o">{</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Good. Let&#8217;s write our first property. What about following -
+Calculator.sum should return sum of two numbers it receives as
+arguments:</p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="s">&quot;Calculator properties&quot;</span> <span class="n">should</span> <span class="o">{</span>
+</span><span class='line'>    <span class="s">&quot;add&quot;</span> <span class="n">in</span> <span class="n">prop</span> <span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=&gt;</span>
+</span><span class='line'>      <span class="nc">Calculator</span><span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="n">x</span><span class="o">,</span> <span class="n">y</span><span class="o">)</span> <span class="n">must_==</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we save a file now, we&#8217;ll notice that result run has 108 expectations
+- this is because ScalaCheck generated 100 pairs of ints and verified if
+  satisfies specified property. Thanks to implicit&#8217;s black magic we can
+use either boolean comparisons <code>x == y</code> or Specs2 matchers <code>x must_== y</code>
+whichever suits better. Notice - we still haven&#8217;t discovered integer
+overflow here, just because we didn&#8217;t write correct assertions, for
+example that sum of positives is positive; but framework silently
+generated those edge case values for us. But, as we&#8217;re
+just learning, let&#8217;s go to something more obvious - for example,
+division:</p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="s">&quot;divide&quot;</span> <span class="n">in</span> <span class="n">prop</span> <span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=&gt;</span>
+</span><span class='line'>  <span class="nc">Calculator</span><span class="o">.</span><span class="n">divide</span><span class="o">(</span><span class="n">x</span><span class="o">,</span> <span class="n">y</span><span class="o">)</span> <span class="n">must_==</span> <span class="n">x</span> <span class="o">/</span> <span class="n">y</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we try to run this, it will fail because of zero-division. There are
+different ways of handling this. Let&#8217;s imagine that we say &#8216;we never
+pass 0 as second argument to division, so we don&#8217;t care what happens
+there&#8217;. It can be easily done with ScalaCheck:</p>
+
+<figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="s">&quot;divide&quot;</span> <span class="n">in</span> <span class="n">prop</span> <span class="o">{</span> <span class="o">(</span><span class="n">x</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">y</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="n">y</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">==&gt;</span> <span class="o">(</span>
+</span><span class='line'>  <span class="nc">Calculator</span><span class="o">.</span><span class="n">divide</span><span class="o">(</span><span class="n">x</span><span class="o">,</span> <span class="n">y</span><span class="o">)</span> <span class="n">must_==</span> <span class="n">x</span> <span class="o">/</span> <span class="n">y</span>
+</span><span class='line'><span class="o">)}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If you are scared by lot of ASCII symbols and extra parenthesis - I
+encourage you to read ScalaCheck user guide, which is a really nice
+description how to write properties. If not - just believe me that this
+property can be read as <em>for any pair of integer such that second
+integer is not zero, following property is true</em></p>
+
+<p>That was rather a big post, so I have to wrap up. Hopefully, you have some insight on Scala
+infrastructure and building. You can try it on your own, or have a look
+at <a href="https://github.com/ytaras/scala_waas/commits/day0">GitHub repository</a>. Also I encourage you to write comments either
+here or at GitHub or send to me via Google+.</p>
+
+<p>Next time lets do our WAAS and start from parsing workflow definition
+files. Stay tuned!</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Yura Taras</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-04-29T00:00:00+03:00" pubdate data-updated="true">Apr 29<span>th</span>, 2013</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/scala/'>Scala</a>, <a class='category' href='/blog/categories/waas/'>WAAS</a>, <a class='category' href='/blog/categories/functional-programming/'>functional programming</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/" data-via="" data-counturl="http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2013/04/05/slides/" title="Previous Post: More slides">&laquo; More slides</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2013/04/29/scala_workshop_0/">Scala Workshop - day 0</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/05/slides/">More slides</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/05/heart/">Heart of a Functional programming</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/03/29/presentations/">Presentations</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/03/29/hello/">Hello, World!</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/ytaras">@ytaras</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'ytaras',
+            count: 0,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+
+<section class="googleplus">
+  <h1>
+    <a href="https://plus.google.com/104286134372549810123?rel=author">
+      <img src="http://www.google.com/images/icons/ui/gprofile_button-32.png" width="32" height="32">
+      Google+
+    </a>
+  </h1>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Yura Taras -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'ytarasblog';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/';
+        var disqus_url = 'http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

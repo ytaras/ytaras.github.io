@@ -1,0 +1,612 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Heart of a Functional programming - Blog about sofware development</title>
+  <meta name="author" content="Yura Taras">
+
+  
+  <meta name="description" content="Intro Every functional programmer should write an article about what FP is at
+all and I&#8217;m not an exception. Next step should be another monad &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://ytaras.github.io/blog/2013/04/05/heart">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Blog about sofware development" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-40546379-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Blog about sofware development</a></h1>
+  
+    <h2>Something should be here</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:ytaras.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Heart of a Functional Programming</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-04-05T00:00:00+03:00" pubdate data-updated="true">Apr 5<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><h2>Intro</h2>
+
+<p>Every functional programmer should write an article about what FP is at
+all and I&#8217;m not an exception. Next step should be another monad tutorial
+- and it&#8217;s still on it&#8217;s way.</p>
+
+<h2>Introduction to functional programming</h2>
+
+<p>So, what is functional programming at all? Actually, there&#8217;s a lot of
+mess about that - functional programming, functional language,
+functional features are different things, even if these terms are
+sometimes confused one with another. For example, I even heard that
+JavaScript is a functional language as it&#8217;s allows passing functions as
+parameters:</p>
+
+<figure class='code'><figcaption><span>example.js</span><a href='http://en.wikipedia.org/wiki/Higher-order_function'>Wikipedia</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="kd">function</span> <span class="nx">ArrayForEach</span><span class="p">(</span><span class="nx">array</span><span class="p">,</span> <span class="nx">func</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">for</span> <span class="p">(</span><span class="kd">var</span> <span class="nx">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">i</span> <span class="o">&lt;</span> <span class="nx">array</span><span class="p">.</span><span class="nx">length</span><span class="p">;</span> <span class="nx">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nx">i</span> <span class="k">in</span> <span class="nx">array</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">func</span><span class="p">(</span><span class="nx">array</span><span class="p">[</span><span class="nx">i</span><span class="p">]);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">function</span> <span class="nx">log</span><span class="p">(</span><span class="nx">msg</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="nx">msg</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">ArrayForEach</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">],</span> <span class="nx">log</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>So, let&#8217;s put a couple of definition:</p>
+
+<ul>
+<li>Functional language is a programming language which enables,
+encourages or even enforces functional programming.</li>
+<li>Functional features are features of a programming language or a
+library, which makes functional programming easier</li>
+<li>Functional programming is&#8230; well, let&#8217;s talk about that below</li>
+</ul>
+
+
+<p>A functional language as a tool use functional features to make using
+functional programming as a paradigm easier; and we can use those
+definitions to determine if some programming language is a functional
+language or not. Whew, enough of F-word :)</p>
+
+<p>But we have one more definition to fill up - functional programming or
+functional paradigm (FP). This is done by contrast usually and I will
+follow that path, but with one small deviation. Usually FP is being
+compared to imperative programming whatever it means. Also is being said
+that FP and OOP are orthogonal and don&#8217;t deny each other. I&#8217;m going to
+argue with that. So, before going to FP lang, let&#8217;s see what we have in
+OOP.</p>
+
+<!-- more -->
+
+
+<h2>OOP reprise</h2>
+
+<p>Here&#8217;s a definition given by Alan Key:</p>
+
+<blockquote><p>1. Everything is an object.<br/>2. Objects communicate by sending and receiving messages (in terms of objects).<br/>3. Objects have their own memory (in terms of objects).<br/>4. Every object is an instance of a class (which must be an object).<br/>5. The class holds the shared behavior for its instances (in the form of objects in a program list)</p><footer><strong>Alan Key</strong> <cite><a href='http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented'>c2.com/cgi/&hellip;</a></cite></footer></blockquote>
+
+
+<p></p>
+
+<p>What&#8217;s interesting here is #2 and #3. Objects communicate by sending and
+receiving objects, for example:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'>  <span class="n">result</span> <span class="o">=</span> <span class="n">person</span><span class="o">.</span><span class="n">send</span> <span class="ss">:full_name</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That&#8217;s valid Ruby code, which sends a message <code>full_name</code> to object
+<code>user</code> and writes response to <code>result</code> variable. Of course, there&#8217;s a
+shorter version, which is in fact a syntactic sugar:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'>  <span class="n">result</span> <span class="o">=</span> <span class="n">person</span><span class="o">.</span><span class="n">full_name</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It doesn&#8217;t matter if we&#8217;re talking about static or dynamic languages,
+Java, C#, Ruby, Smalltalk or Python - every method call can be presented
+as sending a message. We can see simplest basic blocks of OOP are
+objects and messages aka methods.</p>
+
+<p>Looks like it&#8217;s easy with #2, but what about #3? It says every object
+has it&#8217;s own memory (which can be revealed only by sending and received
+messages, by the way). In example before object&#8217;s memory contains,
+probably, last and first names of a person. But what&#8217;s not said here -
+can incoming message mutate internal state of an object? Is following
+code valid?</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">User</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">update_last_name</span><span class="p">(</span><span class="nb">name</span><span class="p">)</span>
+</span><span class='line'>  <span class="vi">@last_name</span> <span class="o">=</span> <span class="nb">name</span> <span class="c1"># Updating internal state here</span>
+</span><span class='line'>  <span class="c1"># For Java programmers:</span>
+</span><span class='line'>  <span class="c1"># @ just means instance variable - or a field in Java terms</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="k">def</span> <span class="nf">full_name</span>
+</span><span class='line'>  <span class="vi">@first_name</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="vi">@last_name</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>  <span class="c1"># Other stuff...</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="n">u</span> <span class="o">=</span> <span class="no">User</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">&quot;John&quot;</span><span class="p">,</span> <span class="s2">&quot;Smith&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">u</span><span class="o">.</span><span class="n">send</span> <span class="ss">:full_name</span> <span class="c1"># John Smith</span>
+</span><span class='line'><span class="n">u</span><span class="o">.</span><span class="n">send</span> <span class="ss">:update_last_name</span><span class="p">,</span> <span class="s2">&quot;Snow&quot;</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">u</span><span class="o">.</span><span class="n">send</span> <span class="ss">:full_name</span> <span class="c1"># John Snow</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Most of the time programming language designers answer &#8216;Yes&#8217; to that
+question. Python, JavaScript, C#, Java, Ruby, Smalltalk - all of them
+accept objects mutability despite of the differences in those language
+implementations. In fact, it comes implicitly from a definition - Alan
+Key used a word &#8216;memory&#8217;, so it implies that object can &#8216;remember&#8217; what
+happened with it before - and this is a mutability.</p>
+
+<h2>Other look</h2>
+
+<p>FP doesn&#8217;t give another answer to &#8216;internal state mutability&#8217; question
+because FP doesn&#8217;t speak in terms of objects and messages, but if it
+would we would say &#8216;no, objects are not allowed to change it&#8217;s state
+once the are created&#8217;. If you haven&#8217;t heard about that before and can
+bring only one item out of this article - let it be this one:</p>
+
+<p><em>Functional programming is a programming using immutable data
+structures and immutable references</em></p>
+
+<p>This is not accurate and not full definition of FP - but I consider this
+as most important part of a paradigm. FP is an art of restricting
+yourself to immutable things - and all other stuff comes from that.
+Let&#8217;s see, if we can still write meaningful things without
+mutability.</p>
+
+<p>Smallest building block in FP is a pure function. There&#8217;s a lot of smart
+words around that - <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
+ or <a href="http://en.wikipedia.org/wiki/Morphism">morphism</a>, but in simple words pure function is a
+plain old programming function, which has 2 properties:</p>
+
+<ol>
+<li>It&#8217;s result depends only on input parameters</li>
+<li>It&#8217;s only job is to calculate it&#8217;s result, it does nothing else - in
+other words, it doesn&#8217;t have side effects.</li>
+</ol>
+
+
+<p>I&#8217;m sure you uderstood already what pure function is, but let&#8217;s have
+some examples:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="n">Random</span> <span class="n">random</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Random</span><span class="o">();</span>
+</span><span class='line'><span class="n">random</span><span class="o">.</span><span class="na">nextInt</span><span class="o">();</span>
+</span><span class='line'><span class="c1">// is not a pure function as it&#39;s result is not determined by its</span>
+</span><span class='line'><span class="c1">// parameters, but by internal state of a random generator</span>
+</span><span class='line'><span class="kt">int</span> <span class="kt">char</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">in</span><span class="o">.</span><span class="na">read</span><span class="o">()</span>
+</span><span class='line'><span class="c1">// is not a pure function as well, as it&#39;s result</span>
+</span><span class='line'><span class="c1">// is determined by user input</span>
+</span><span class='line'><span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">&quot;Hello, World&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="c1">// miss. It&#39;s not a pure function, it&#39;s not a function at all,</span>
+</span><span class='line'><span class="c1">// as it doesn&#39;t return any result. Anyway, even if it would</span>
+</span><span class='line'><span class="c1">// return something, still it has side effects - output</span>
+</span><span class='line'><span class="c1">// in console, so it doesn&#39;t satisfy pure function definition.</span>
+</span><span class='line'><span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span>
+</span><span class='line'><span class="c1">// finally we have a pure function here - valueOf depends</span>
+</span><span class='line'><span class="c1">// only on a input param and does nothing on the outside.</span>
+</span><span class='line'><span class="kt">int</span> <span class="n">l</span> <span class="o">=</span> <span class="s">&quot;Some string&quot;</span><span class="o">.</span><span class="na">length</span><span class="o">();</span>
+</span><span class='line'><span class="c1">// this is a pure function as well, even if we&#39;re writing</span>
+</span><span class='line'><span class="c1">// it using object notation.</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let&#8217;s have few extra words about last case. As I said before, we can say
+it&#8217;s sending a message &#8216;length&#8217; to object &#8220;Some string&#8221;, but on the
+other side, there&#8217;s nothing wrong in looking on it as a function length
+with one parameter &#8220;Some string&#8221;. A fact that strings are immutable in
+Java helps in that paradigm shift a lot.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='java'><span class='line'><span class="kt">int</span> <span class="n">l</span> <span class="o">=</span> <span class="n">FunctionalStringUtils</span><span class="o">.</span><span class="na">length</span><span class="o">(</span><span class="s">&quot;Some string&quot;</span><span class="o">);</span>
+</span><span class='line'><span class="c1">// There&#39;s always same result for same string!</span>
+</span><span class='line'><span class="c1">// And it doesn&#39;t change anything in other parts of a program</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let&#8217;s add this to our definitions:</p>
+
+<p><em>Functional programming is a programming using only immutable
+references/data structures and pure functions</em></p>
+
+<h2>So what?</h2>
+
+<p>Ok, forbidden ourselfves to use mutations, we forgot about objects and
+messages and we are using functions instead - for what? Why on Earth
+would I use only a subset of possible ways to express a logic of a
+program? Why should I restrict myself to writing only pure functions?</p>
+
+<p>Think about the following:</p>
+
+<p>Only thing that interests us with pure function is it&#8217;s result. In fact,
+we can replace call to pure function with it&#8217;s result value - and it
+won&#8217;t change what our program does. By the way, this property is called
+referential transparency.</p>
+
+<p>But there&#8217;s a lot of options for you to get the result value. You can
+calculate result during compilation if you know function arguments in
+compile time. Or in another thread. Or in another process. Or at another
+machine. Or you can not calculate the value before it&#8217;s really needed.
+Or you can cache the value and return result from cache for same
+function arguments.</p>
+
+<p>Oh, by the way, did I mention multithreading? Usually it&#8217;s almost
+physical pain to debug a mutlithreaded program build in conventional
+way. FP changes that - doesn&#8217;t matter which thread executed the specific
+function or if it executed at all. In fact, there are prototypes of
+automatic program paralellization. Think about that - program which
+knows nothing about multithreading at all, can be run in mutlithreading
+environment.</p>
+
+<h2>Doing mutations</h2>
+
+<p>Ok, but what if we need mutations? What do we do to change last name of
+existing user?</p>
+
+<p>Well, we don&#8217;t. Instead of destructive updates - we copy to new instance
+every time we need to change something:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">u</span> <span class="o">=</span> <span class="p">{</span><span class="n">first_name</span><span class="p">:</span> <span class="s2">&quot;John&quot;</span><span class="p">,</span> <span class="n">last_name</span><span class="p">:</span> <span class="s2">&quot;Smith&quot;</span><span class="p">}</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">full_name</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="c1"># Jonh Smith</span>
+</span><span class='line'><span class="n">u1</span> <span class="o">=</span> <span class="n">update_last_name</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="s2">&quot;Snow&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="c1"># Instead of changing user object, we return an updated copy of it</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">full_name</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span> <span class="c1"># John Snow</span>
+</span><span class='line'><span class="nb">puts</span> <span class="n">full_name</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="c1"># John Smith</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That looks like a huge waste of resources - when we are changing things
+a lot, we&#8217;re going to have a lot of copies in our memory. Anyway, fact
+that all our data structures are immutable, opens a door for some
+optimizations which can be done by compiler or runtime, for example you
+can reuse structures or it&#8217;s parts in different places. Because things
+are immutable, we can not fear one part of our program impacting other
+by implicitly changing state of a shared structure.</p>
+
+<p>With that whole class of concurrency problems just go away, so using
+immutable structures is a good idea not only in FP, but in OOP as well -
+Joshua Bloch recommends &#8220;Minimize mutability&#8221; in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
+
+<h2>FP distilled</h2>
+
+<p>So, we have immutable structures and pure functions - and those are
+building blocks in FP. If you restrict yourself to this things - you&#8217;re
+doing FP, if you relax a restriction and doing some other things -
+you&#8217;re outside of FP land.</p>
+
+<p>Also notice we&#8217;ve lost notice of objects and messages - we don&#8217;t need
+them anymore. As I said before, it&#8217;s just a matter of syntax - do we put
+first argument first or after function name:</p>
+
+<p>In FP we don&#8217;t mix data and behavior inside of our objects, instead we
+have them split in different places - our data structures are skinny and
+contain only data and our functions work with every argument they are
+provided with - if it conform some preconditions, of course. Note, we
+haven&#8217;t talked about types yet - but we&#8217;re going to do that in next
+parts of a series.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Yura Taras</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-04-05T00:00:00+03:00" pubdate data-updated="true">Apr 5<span>th</span>, 2013</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/functional-programming/'>functional programming</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://ytaras.github.io/blog/2013/04/05/heart/" data-via="" data-counturl="http://ytaras.github.io/blog/2013/04/05/heart/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2013/03/29/presentations/" title="Previous Post: Presentations">&laquo; Presentations</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2013/04/05/slides/" title="Next Post: More slides">More slides &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2013/04/29/scala_workshop_0/">Scala Workshop - day 0</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/05/slides/">More slides</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/05/heart/">Heart of a Functional programming</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/03/29/presentations/">Presentations</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/03/29/hello/">Hello, World!</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/ytaras">@ytaras</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'ytaras',
+            count: 0,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+
+<section class="googleplus">
+  <h1>
+    <a href="https://plus.google.com/104286134372549810123?rel=author">
+      <img src="http://www.google.com/images/icons/ui/gprofile_button-32.png" width="32" height="32">
+      Google+
+    </a>
+  </h1>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Yura Taras -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'ytarasblog';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://ytaras.github.io/blog/2013/04/05/heart/';
+        var disqus_url = 'http://ytaras.github.io/blog/2013/04/05/heart/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
