@@ -135,6 +135,19 @@ our topic in 'Real World Haskell' book -
 [The Parsec parsing library][8]. This is a really interesting stuff to
 read - and I give up explaining parser combinators to that guys. 
 
+So let's create a file `src/main/scala/parser/parser.scala` and add
+following content to it:
+```scala
+package parsers
+
+import scala.util.parsing.combinator._
+
+object SampleParser extends JavaTokenParsers {
+  def number = floatingPointNumber
+  def twoNumbers = floatingPointNumber ~ floatingPointNumber
+}
+```
+
 [1]: http://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_Form
 [2]: http://www.antlr.org/
 [3]: http://tunnelvisionlabs.com/products/demo/antlrworks
