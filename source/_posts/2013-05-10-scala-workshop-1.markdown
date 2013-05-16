@@ -144,9 +144,72 @@ import scala.util.parsing.combinator._
 
 object SampleParser extends JavaTokenParsers {
   def number = floatingPointNumber
-  def twoNumbers = floatingPointNumber ~ floatingPointNumber
+  def twoNumbers = number ~ number
 }
 ```
+
+Let's start from the beginning. We import all required imports and then
+extend our custom object from JavaTokenParsers class. This class is an
+extension of default parsers class, scala.util.parsing.combinator.Parsers. 
+What's useful in that class in our case is that it does whitespaces handling 
+and provides few useful parsers, like `ident` or `floatingPointNumber` we're using in this example.
+
+Launch console with `sbt console` and have a look at types:
+```
+scala> import parsers._
+import parsers._
+
+scala> import SampleParser._
+import SampleParser._
+
+scala> :type number
+parsers.SampleParser.Parser[String]
+
+scala> :type twoNumbers
+parsers.SampleParser.Parser[parsers.SampleParser.~[String,String]]
+```
+Ok, now it should be easier to tell what's going on. Each parser has a type -
+what is returned on successful parse. For example, `number` parser
+returns (somewhat surprisingly) String. But what's interesting is a second parser,
+which is constructed as a combination of 2 parsers and return ~[String, String] - yet
+another type to present data tuple. We can use `twoNumbers` parser on it's own or
+construct more parsers on top of it - and this is what composition is about.
+
+After defining parsers we can use them. There are 2 methods - `parse` and `parseAll`.
+Difference is that second fails if parser didn't consume all the input. Here are some
+examples of using that:
+```scala
+object ParserExample extends App {
+  import SampleParser._
+
+  println("Parsing whole string '123' as a number")
+  println(parseAll(number, "123").get)
+  println("Parsing whole string '123 321' as a number")
+  parseAll(number, "123 123") match {
+    case x: NoSuccess => println(x.msg)
+  }
+  println("Parsing string '123 321' as a number")
+  println(parse(number, "123").get)
+  println("Parsing whole string '123 321' as two numbers")
+  println(parseAll(twoNumbers, "123 321").get)
+}
+```
+
+Go ahead and run this program - there are 1 failing and 3
+successful examples.
+
+So far so good, but how do we convert parser output to types we need? That's what `^^`
+method is for. Let's make our first parser to convert result to float and second
+one to multiply floats it parses:
+```scala
+  def number: Parser[Float] = floatingPointNumber ^^ { _.toFloat }
+  def twoNumbers: Parser[Float] = number ~ number ^^ { x => 
+    x._1 * x._2
+  }
+```
+
+As shown here, `^^` operator takes parser on a left and a converter function
+on a right, and a result is a parser which returns converted result. 
 
 [1]: http://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_Form
 [2]: http://www.antlr.org/
