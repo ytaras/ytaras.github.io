@@ -10,7 +10,7 @@
 
   
   <meta name="description" content="Intro Every functional programmer should write an article about what FP is at
-all and I&#8217;m not an exception. Next step should be another monad &hellip;">
+all and I&rsquo;m not an exception. Next step should be another monad &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -107,16 +107,16 @@ all and I&#8217;m not an exception. Next step should be another monad &hellip;">
 <div class="entry-content"><h2>Intro</h2>
 
 <p>Every functional programmer should write an article about what FP is at
-all and I&#8217;m not an exception. Next step should be another monad tutorial
-- and it&#8217;s still on it&#8217;s way.</p>
+all and I&rsquo;m not an exception. Next step should be another monad tutorial
+&ndash; and it&rsquo;s still on it&rsquo;s way.</p>
 
 <h2>Introduction to functional programming</h2>
 
-<p>So, what is functional programming at all? Actually, there&#8217;s a lot of
-mess about that - functional programming, functional language,
+<p>So, what is functional programming at all? Actually, there&rsquo;s a lot of
+mess about that &ndash; functional programming, functional language,
 functional features are different things, even if these terms are
 sometimes confused one with another. For example, I even heard that
-JavaScript is a functional language as it&#8217;s allows passing functions as
+JavaScript is a functional language as it&rsquo;s allows passing functions as
 parameters:</p>
 
 <figure class='code'><figcaption><span>example.js</span><a href='http://en.wikipedia.org/wiki/Higher-order_function'>Wikipedia</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -148,14 +148,14 @@ parameters:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>So, let&#8217;s put a couple of definition:</p>
+<p>So, let&rsquo;s put a couple of definition:</p>
 
 <ul>
 <li>Functional language is a programming language which enables,
 encourages or even enforces functional programming.</li>
 <li>Functional features are features of a programming language or a
 library, which makes functional programming easier</li>
-<li>Functional programming is&#8230; well, let&#8217;s talk about that below</li>
+<li>Functional programming is&hellip; well, let&rsquo;s talk about that below</li>
 </ul>
 
 
@@ -164,12 +164,12 @@ functional programming as a paradigm easier; and we can use those
 definitions to determine if some programming language is a functional
 language or not. Whew, enough of F-word :)</p>
 
-<p>But we have one more definition to fill up - functional programming or
+<p>But we have one more definition to fill up &ndash; functional programming or
 functional paradigm (FP). This is done by contrast usually and I will
 follow that path, but with one small deviation. Usually FP is being
 compared to imperative programming whatever it means. Also is being said
-that FP and OOP are orthogonal and don&#8217;t deny each other. I&#8217;m going to
-argue with that. So, before going to FP lang, let&#8217;s see what we have in
+that FP and OOP are orthogonal and don&rsquo;t deny each other. I&rsquo;m going to
+argue with that. So, before going to FP lang, let&rsquo;s see what we have in
 OOP.</p>
 
 <!-- more -->
@@ -177,14 +177,14 @@ OOP.</p>
 
 <h2>OOP reprise</h2>
 
-<p>Here&#8217;s a definition given by Alan Key:</p>
+<p>Here&rsquo;s a definition given by Alan Key:</p>
 
 <blockquote><p>1. Everything is an object.<br/>2. Objects communicate by sending and receiving messages (in terms of objects).<br/>3. Objects have their own memory (in terms of objects).<br/>4. Every object is an instance of a class (which must be an object).<br/>5. The class holds the shared behavior for its instances (in the form of objects in a program list)</p><footer><strong>Alan Key</strong> <cite><a href='http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented'>c2.com/cgi/&hellip;</a></cite></footer></blockquote>
 
 
 <p></p>
 
-<p>What&#8217;s interesting here is #2 and #3. Objects communicate by sending and
+<p>What&rsquo;s interesting here is #2 and #3. Objects communicate by sending and
 receiving objects, for example:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -192,8 +192,8 @@ receiving objects, for example:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>That&#8217;s valid Ruby code, which sends a message <code>full_name</code> to object
-<code>user</code> and writes response to <code>result</code> variable. Of course, there&#8217;s a
+<p>That&rsquo;s valid Ruby code, which sends a message <code>full_name</code> to object
+<code>user</code> and writes response to <code>result</code> variable. Of course, there&rsquo;s a
 shorter version, which is in fact a syntactic sugar:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -201,15 +201,15 @@ shorter version, which is in fact a syntactic sugar:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>It doesn&#8217;t matter if we&#8217;re talking about static or dynamic languages,
-Java, C#, Ruby, Smalltalk or Python - every method call can be presented
+<p>It doesn&rsquo;t matter if we&rsquo;re talking about static or dynamic languages,
+Java, C#, Ruby, Smalltalk or Python &ndash; every method call can be presented
 as sending a message. We can see simplest basic blocks of OOP are
 objects and messages aka methods.</p>
 
-<p>Looks like it&#8217;s easy with #2, but what about #3? It says every object
-has it&#8217;s own memory (which can be revealed only by sending and received
-messages, by the way). In example before object&#8217;s memory contains,
-probably, last and first names of a person. But what&#8217;s not said here -
+<p>Looks like it&rsquo;s easy with #2, but what about #3? It says every object
+has it&rsquo;s own memory (which can be revealed only by sending and received
+messages, by the way). In example before object&rsquo;s memory contains,
+probably, last and first names of a person. But what&rsquo;s not said here &ndash;
 can incoming message mutate internal state of an object? Is following
 code valid?</p>
 
@@ -246,43 +246,43 @@ code valid?</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Most of the time programming language designers answer &#8216;Yes&#8217; to that
-question. Python, JavaScript, C#, Java, Ruby, Smalltalk - all of them
+<p>Most of the time programming language designers answer &lsquo;Yes&rsquo; to that
+question. Python, JavaScript, C#, Java, Ruby, Smalltalk &ndash; all of them
 accept objects mutability despite of the differences in those language
-implementations. In fact, it comes implicitly from a definition - Alan
-Key used a word &#8216;memory&#8217;, so it implies that object can &#8216;remember&#8217; what
-happened with it before - and this is a mutability.</p>
+implementations. In fact, it comes implicitly from a definition &ndash; Alan
+Key used a word &lsquo;memory&rsquo;, so it implies that object can &lsquo;remember&rsquo; what
+happened with it before &ndash; and this is a mutability.</p>
 
 <h2>Other look</h2>
 
-<p>FP doesn&#8217;t give another answer to &#8216;internal state mutability&#8217; question
-because FP doesn&#8217;t speak in terms of objects and messages, but if it
-would we would say &#8216;no, objects are not allowed to change it&#8217;s state
-once the are created&#8217;. If you haven&#8217;t heard about that before and can
-bring only one item out of this article - let it be this one:</p>
+<p>FP doesn&rsquo;t give another answer to &lsquo;internal state mutability&rsquo; question
+because FP doesn&rsquo;t speak in terms of objects and messages, but if it
+would we would say &lsquo;no, objects are not allowed to change it&rsquo;s state
+once the are created&rsquo;. If you haven&rsquo;t heard about that before and can
+bring only one item out of this article &ndash; let it be this one:</p>
 
 <p><em>Functional programming is a programming using immutable data
 structures and immutable references</em></p>
 
-<p>This is not accurate and not full definition of FP - but I consider this
+<p>This is not accurate and not full definition of FP &ndash; but I consider this
 as most important part of a paradigm. FP is an art of restricting
-yourself to immutable things - and all other stuff comes from that.
-Let&#8217;s see, if we can still write meaningful things without
+yourself to immutable things &ndash; and all other stuff comes from that.
+Let&rsquo;s see, if we can still write meaningful things without
 mutability.</p>
 
-<p>Smallest building block in FP is a pure function. There&#8217;s a lot of smart
-words around that - <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
+<p>Smallest building block in FP is a pure function. There&rsquo;s a lot of smart
+words around that &ndash; <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
  or <a href="http://en.wikipedia.org/wiki/Morphism">morphism</a>, but in simple words pure function is a
 plain old programming function, which has 2 properties:</p>
 
 <ol>
-<li>It&#8217;s result depends only on input parameters</li>
-<li>It&#8217;s only job is to calculate it&#8217;s result, it does nothing else - in
-other words, it doesn&#8217;t have side effects.</li>
+<li>It&rsquo;s result depends only on input parameters</li>
+<li>It&rsquo;s only job is to calculate it&rsquo;s result, it does nothing else &ndash; in
+other words, it doesn&rsquo;t have side effects.</li>
 </ol>
 
 
-<p>I&#8217;m sure you uderstood already what pure function is, but let&#8217;s have
+<p>I&rsquo;m sure you uderstood already what pure function is, but let&rsquo;s have
 some examples:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -324,10 +324,10 @@ some examples:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Let&#8217;s have few extra words about last case. As I said before, we can say
-it&#8217;s sending a message &#8216;length&#8217; to object &#8220;Some string&#8221;, but on the
-other side, there&#8217;s nothing wrong in looking on it as a function length
-with one parameter &#8220;Some string&#8221;. A fact that strings are immutable in
+<p>Let&rsquo;s have few extra words about last case. As I said before, we can say
+it&rsquo;s sending a message &lsquo;length&rsquo; to object &ldquo;Some string&rdquo;, but on the
+other side, there&rsquo;s nothing wrong in looking on it as a function length
+with one parameter &ldquo;Some string&rdquo;. A fact that strings are immutable in
 Java helps in that paradigm shift a lot.</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -339,7 +339,7 @@ Java helps in that paradigm shift a lot.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Let&#8217;s add this to our definitions:</p>
+<p>Let&rsquo;s add this to our definitions:</p>
 
 <p><em>Functional programming is a programming using only immutable
 references/data structures and pure functions</em></p>
@@ -347,29 +347,29 @@ references/data structures and pure functions</em></p>
 <h2>So what?</h2>
 
 <p>Ok, forbidden ourselfves to use mutations, we forgot about objects and
-messages and we are using functions instead - for what? Why on Earth
+messages and we are using functions instead &ndash; for what? Why on Earth
 would I use only a subset of possible ways to express a logic of a
 program? Why should I restrict myself to writing only pure functions?</p>
 
 <p>Think about the following:</p>
 
-<p>Only thing that interests us with pure function is it&#8217;s result. In fact,
-we can replace call to pure function with it&#8217;s result value - and it
-won&#8217;t change what our program does. By the way, this property is called
+<p>Only thing that interests us with pure function is it&rsquo;s result. In fact,
+we can replace call to pure function with it&rsquo;s result value &ndash; and it
+won&rsquo;t change what our program does. By the way, this property is called
 referential transparency.</p>
 
-<p>But there&#8217;s a lot of options for you to get the result value. You can
+<p>But there&rsquo;s a lot of options for you to get the result value. You can
 calculate result during compilation if you know function arguments in
 compile time. Or in another thread. Or in another process. Or at another
-machine. Or you can not calculate the value before it&#8217;s really needed.
+machine. Or you can not calculate the value before it&rsquo;s really needed.
 Or you can cache the value and return result from cache for same
 function arguments.</p>
 
-<p>Oh, by the way, did I mention multithreading? Usually it&#8217;s almost
+<p>Oh, by the way, did I mention multithreading? Usually it&rsquo;s almost
 physical pain to debug a mutlithreaded program build in conventional
-way. FP changes that - doesn&#8217;t matter which thread executed the specific
+way. FP changes that &ndash; doesn&rsquo;t matter which thread executed the specific
 function or if it executed at all. In fact, there are prototypes of
-automatic program paralellization. Think about that - program which
+automatic program paralellization. Think about that &ndash; program which
 knows nothing about multithreading at all, can be run in mutlithreading
 environment.</p>
 
@@ -378,7 +378,7 @@ environment.</p>
 <p>Ok, but what if we need mutations? What do we do to change last name of
 existing user?</p>
 
-<p>Well, we don&#8217;t. Instead of destructive updates - we copy to new instance
+<p>Well, we don&rsquo;t. Instead of destructive updates &ndash; we copy to new instance
 every time we need to change something:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -396,34 +396,34 @@ every time we need to change something:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>That looks like a huge waste of resources - when we are changing things
-a lot, we&#8217;re going to have a lot of copies in our memory. Anyway, fact
+<p>That looks like a huge waste of resources &ndash; when we are changing things
+a lot, we&rsquo;re going to have a lot of copies in our memory. Anyway, fact
 that all our data structures are immutable, opens a door for some
 optimizations which can be done by compiler or runtime, for example you
-can reuse structures or it&#8217;s parts in different places. Because things
+can reuse structures or it&rsquo;s parts in different places. Because things
 are immutable, we can not fear one part of our program impacting other
 by implicitly changing state of a shared structure.</p>
 
 <p>With that whole class of concurrency problems just go away, so using
-immutable structures is a good idea not only in FP, but in OOP as well -
-Joshua Bloch recommends &#8220;Minimize mutability&#8221; in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
+immutable structures is a good idea not only in FP, but in OOP as well &ndash;
+Joshua Bloch recommends &ldquo;Minimize mutability&rdquo; in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
 
 <h2>FP distilled</h2>
 
-<p>So, we have immutable structures and pure functions - and those are
-building blocks in FP. If you restrict yourself to this things - you&#8217;re
-doing FP, if you relax a restriction and doing some other things -
-you&#8217;re outside of FP land.</p>
+<p>So, we have immutable structures and pure functions &ndash; and those are
+building blocks in FP. If you restrict yourself to this things &ndash; you&rsquo;re
+doing FP, if you relax a restriction and doing some other things &ndash;
+you&rsquo;re outside of FP land.</p>
 
-<p>Also notice we&#8217;ve lost notice of objects and messages - we don&#8217;t need
-them anymore. As I said before, it&#8217;s just a matter of syntax - do we put
+<p>Also notice we&rsquo;ve lost notice of objects and messages &ndash; we don&rsquo;t need
+them anymore. As I said before, it&rsquo;s just a matter of syntax &ndash; do we put
 first argument first or after function name:</p>
 
-<p>In FP we don&#8217;t mix data and behavior inside of our objects, instead we
-have them split in different places - our data structures are skinny and
+<p>In FP we don&rsquo;t mix data and behavior inside of our objects, instead we
+have them split in different places &ndash; our data structures are skinny and
 contain only data and our functions work with every argument they are
-provided with - if it conform some preconditions, of course. Note, we
-haven&#8217;t talked about types yet - but we&#8217;re going to do that in next
+provided with &ndash; if it conform some preconditions, of course. Note, we
+haven&rsquo;t talked about types yet &ndash; but we&rsquo;re going to do that in next
 parts of a series.</p>
 </div>
 
@@ -494,6 +494,10 @@ parts of a series.</p>
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2013/05/10/scala-workshop-1/">Scala Workshop - day 1, parsers</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2013/04/29/scala_workshop_0/">Scala Workshop - day 0</a>
       </li>
     
@@ -507,10 +511,6 @@ parts of a series.</p>
     
       <li class="post">
         <a href="/blog/2013/03/29/presentations/">Presentations</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2013/03/29/hello/">Hello, World!</a>
       </li>
     
   </ul>

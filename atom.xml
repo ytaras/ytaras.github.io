@@ -4,7 +4,7 @@
   <title><![CDATA[Blog about sofware development]]></title>
   <link href="http://ytaras.github.io/atom.xml" rel="self"/>
   <link href="http://ytaras.github.io/"/>
-  <updated>2013-05-01T13:08:37+03:00</updated>
+  <updated>2013-05-21T08:10:14+03:00</updated>
   <id>http://ytaras.github.io/</id>
   <author>
     <name><![CDATA[Yura Taras]]></name>
@@ -14,19 +14,574 @@
 
   
   <entry>
+    <title type="html"><![CDATA[Scala Workshop - day 1, parsers]]></title>
+    <link href="http://ytaras.github.io/blog/2013/05/10/scala-workshop-1/"/>
+    <updated>2013-05-10T14:27:00+03:00</updated>
+    <id>http://ytaras.github.io/blog/2013/05/10/scala-workshop-1</id>
+    <content type="html"><![CDATA[<p>Let&rsquo;s continue on WAAS (workflow-as-a-service). In this post I&rsquo;m going
+to show how to use parsers combinators to parse our workflow
+definitions.</p>
+
+<p>Have a look at sample workflow definition file we&rsquo;re going to parse. It
+contains 2 worflow definitions &ndash; one for issue tracking system and other
+for deals.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>workflow issue {
+</span><span class='line'>  start state open
+</span><span class='line'>                 goes to started;
+</span><span class='line'>  state started  goes to open, resolved;
+</span><span class='line'>  state resolved goes to closed, open;
+</span><span class='line'>  state closed;
+</span><span class='line'>};
+</span><span class='line'>
+</span><span class='line'>workflow project {
+</span><span class='line'>  start state negotiation
+</span><span class='line'>               goes to signed, failed;
+</span><span class='line'>  state signed goes to failed, done;
+</span><span class='line'>  state done   goes to paid, failed;
+</span><span class='line'>  state paid;
+</span><span class='line'>  state failed;
+</span><span class='line'>};</span></code></pre></td></tr></table></div></figure>
+
+
+<p>At the end of this post we&rsquo;re going to have a parser, which transforms
+textual definitions to our internal model, ready for persistense.</p>
+
+<!-- more -->
+
+
+<h2>Parsers in ANTLR</h2>
+
+<p>To target that task, let&rsquo;s start with something more conventional than
+Scala parsers. <a href="http://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_Form">EBNF</a> format is widely used for describing grammar, so
+we&rsquo;re going to start with that:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>goes       = 'goes', ws, 'to', ws, { identifier, ',', ws }, identifier;
+</span><span class='line'>state      = [ 'start', ws ], 'state', ws, goes, ws, ';'
+</span><span class='line'>workflow   = 'workflow', ws, identifier, ws, '{', ws, { state, ws },  ws, '}', ws, ';'
+</span><span class='line'>workflows  = { workflow } 
+</span><span class='line'>ws         = ? whitespace characters ?
+</span><span class='line'>identifier = letter { letter | number | '_' }</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In order to generate executable parsers, we should define the grammar
+in some DSL specific for a parser framework we choose. Let&rsquo;s define a
+grammar in <a href="http://www.antlr.org/">ANTLR4</a> &ndash; well known parser in Java world:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>grammar workflowGrammar;
+</span><span class='line'>file: workflowDefinition* EOF;
+</span><span class='line'>workflowDefinition: 'workflow' ID '{' stateDefinition*?'}' ';';
+</span><span class='line'>stateDefinition: 'start'? 'state' ID goes? ';';
+</span><span class='line'>goes: 'goes' 'to' (ID',')* ID;
+</span><span class='line'>ID: [a-zA-Z]([a-z0-9_])* ;
+</span><span class='line'>WS: [ \t\r\n]+ -&gt; skip;</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Based on that grammar we are ready to generate lexer and parser. For
+ones who are not familiar with those terms &ndash; lexer is a converter from
+input stream to stream of tokens and parser is converter from a stream
+of tokens to a parse tree. Anyway, this distinction is not critical in
+our case, so I will refer to lexer+parser combination as simply parser.</p>
+
+<p>I leave ANTLR parser generation and execution as an exercise for a reader.
+Still, here&rsquo;s sample parsed tree you could view using <a href="http://tunnelvisionlabs.com/products/demo/antlrworks">ANTLRWorks</a>:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(file
+</span><span class='line'>  (workflowDefinition workflow issue {
+</span><span class='line'>      (stateDefinition start state open (goes goes to started) ;)
+</span><span class='line'>      (stateDefinition state started (goes goes to open , resolved) ;)
+</span><span class='line'>      (stateDefinition state resolved (goes goes to closed , open) ;)
+</span><span class='line'>      (stateDefinition state closed ;)
+</span><span class='line'>   } ;)
+</span><span class='line'>  (workflowDefinition workflow project {
+</span><span class='line'>      (stateDefinition start state negotiation (goes goes to signed , failed) ;)
+</span><span class='line'>      (stateDefinition state signed (goes goes to failed , done) ;)
+</span><span class='line'>      (stateDefinition state done (goes goes to paid , failed) ;)
+</span><span class='line'>      (stateDefinition state paid ;)
+</span><span class='line'>      (stateDefinition state failed ;)
+</span><span class='line'>   } ;)
+</span><span class='line'>&lt;EOF&gt;)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can easily see that this tree is much easier to convert to our model
+than a flat string we had on our input.</p>
+
+<p>ANTLR is a great tool and is used in most cases when we need parsing
+capabilities in Java world. Anyway, there&rsquo;s a thing you should notice
+about grammar definition &ndash; it is so called &lsquo;external DSL&rsquo; &ndash; it means
+that this is a separate language, which needs it&rsquo;s own parser and
+compiler. If instead we would try to define grammar using Java directly,
+it would be a huge pain to write, read and support.</p>
+
+<h2>Parser combinators framework</h2>
+
+<p>Scala goes with it&rsquo;s own parser framework, very much
+inspired by Haskell&rsquo;s <a href="http://legacy.cs.uu.nl/daan/parsec.html">Parsec</a> framework and is a part of standart
+Scala library. In a contrast, Scala&rsquo;s parsers are written using plain
+Scala using some syntatical features and tricks of a language. This
+approach is called <a href="http://martinfowler.com/bliki/DomainSpecificLanguage.html">Internal DSL</a></p>
+
+<p>Idea behind parser combinators is very simple: every parser is defined
+as a function from its input to parse result. Parser result contains
+output value or failure message and rest of input:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">def</span> <span class="n">parse</span><span class="o">(</span><span class="n">input</span><span class="k">:</span> <span class="kt">Input</span><span class="o">)</span><span class="k">:</span> <span class="kt">Result</span> <span class="o">=</span> <span class="o">???</span>
+</span><span class='line'><span class="k">sealed</span> <span class="k">trait</span> <span class="nc">Result</span>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Success</span><span class="o">(</span><span class="n">result</span><span class="k">:</span> <span class="kt">Output</span><span class="o">,</span> <span class="n">next</span><span class="k">:</span> <span class="kt">Input</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Result</span>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Failure</span><span class="o">(</span><span class="n">failure</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">next</span><span class="k">:</span> <span class="kt">Input</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Result</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>A fact that not-consumed part of input is returned back turns out to be
+ a very usefull feature, because it enables easy parser
+composition. BTW, composition is kind of fetish in functional
+programming community &ndash; ability to define small primitives and compose
+larger thing of it is recognized as design success. With that in mind,
+parser combinators are definitelly a success &ndash; all parser tutorials
+start with creating a parser which parses a single char and than create
+much more expressive parsers on top of that primitive. I won&rsquo;t do that
+in this post, instead I will act as a parser library user. Anyway, I
+strongly recommend reading great <a href="http://henkelmann.eu/2011/01/13/an_introduction_to_scala_parser_combinators">series of posts on that topic</a>. If
+you don&rsquo;t afraid Haskell (and you shouldn&rsquo;t!), there are two chapters on
+our topic in &lsquo;Real World Haskell&rsquo; book &ndash;
+<a href="http://book.realworldhaskell.org/read/code-case-study-parsing-a-binary-data-format.html">Code case study: parsing a binary data format</a> and
+<a href="http://book.realworldhaskell.org/read/using-parsec.html">The Parsec parsing library</a>. This is a really interesting stuff to
+read &ndash; and I give up explaining parser combinators to that guys.</p>
+
+<p>So let&rsquo;s create a file <code>src/main/scala/parser/parser.scala</code> and add
+following content to it:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">parsers</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">import</span> <span class="nn">scala.util.parsing.combinator._</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">object</span> <span class="nc">SampleParser</span> <span class="k">extends</span> <span class="nc">JavaTokenParsers</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">number</span> <span class="k">=</span> <span class="n">floatingPointNumber</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">twoNumbers</span> <span class="k">=</span> <span class="n">number</span> <span class="o">~</span> <span class="n">number</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let&rsquo;s start from the beginning. We import all required imports and then
+extend our custom object from <code>JavaTokenParsers</code> class. This class is an
+extension of default parsers class, <code>scala.util.parsing.combinator.Parsers</code>.
+What&rsquo;s useful in that class in our case is that it does whitespaces handling
+and provides few useful parsers, like <code>ident</code> or <code>floatingPointNumber</code> we&rsquo;re using in this example.</p>
+
+<p>Launch console with <code>sbt console</code> and have a look at types:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">import</span> <span class="nn">parsers._</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">parsers._</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">import</span> <span class="nn">SampleParser._</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">SampleParser._</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">number</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">SampleParser</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">twoNumbers</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">SampleParser</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">parsers.SampleParser.~</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">String</span><span class="o">]]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Ok, now it should be easier to tell what&rsquo;s going on. Each parser has a type &ndash;
+what is returned on successful parse. For example, <code>number</code> parser
+returns (somewhat surprisingly) String. But what&rsquo;s interesting is a second parser,
+which is constructed as a combination of 2 parsers and return <code>~[String, String]</code> &ndash; yet
+another type to present data tuple. We can use <code>twoNumbers</code> parser on it&rsquo;s own or
+construct more parsers on top of it &ndash; and this is what composition is about.</p>
+
+<p>After defining parsers we can use them. There are 2 methods &ndash; <code>parse</code> and <code>parseAll</code>.
+Difference is that second fails if parser didn&rsquo;t consume all the input. Here are some
+examples of using that:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">object</span> <span class="nc">ParserExample</span> <span class="k">extends</span> <span class="nc">App</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">import</span> <span class="nn">SampleParser._</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing whole string &#39;123&#39; as a number&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="n">parseAll</span><span class="o">(</span><span class="n">number</span><span class="o">,</span> <span class="s">&quot;123&quot;</span><span class="o">).</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing whole string &#39;123 321&#39; as a number&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="n">number</span><span class="o">,</span> <span class="s">&quot;123 123&quot;</span><span class="o">)</span> <span class="k">match</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">case</span> <span class="n">x</span><span class="k">:</span> <span class="kt">NoSuccess</span> <span class="o">=&gt;</span> <span class="n">println</span><span class="o">(</span><span class="n">x</span><span class="o">.</span><span class="n">msg</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing string &#39;123 321&#39; as a number&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="n">parse</span><span class="o">(</span><span class="n">number</span><span class="o">,</span> <span class="s">&quot;123&quot;</span><span class="o">).</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing whole string &#39;123 321&#39; as two numbers&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="n">parseAll</span><span class="o">(</span><span class="n">twoNumbers</span><span class="o">,</span> <span class="s">&quot;123 321&quot;</span><span class="o">).</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Go ahead and run this program &ndash; there are 1 failing and 3
+successful examples.</p>
+
+<p>So far so good, but how do we convert parser output to types we need? That&rsquo;s what <code>^^</code>
+method is for. Let&rsquo;s make our first parser to convert result to float and second
+one to multiply floats it parses:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">number</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Float</span><span class="o">]</span> <span class="k">=</span> <span class="n">floatingPointNumber</span> <span class="o">^^</span> <span class="o">{</span> <span class="k">_</span><span class="o">.</span><span class="n">toFloat</span> <span class="o">}</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">twoNumbers</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Float</span><span class="o">]</span> <span class="k">=</span> <span class="n">number</span> <span class="o">~</span> <span class="n">number</span> <span class="o">^^</span> <span class="o">{</span> <span class="n">x</span> <span class="k">=&gt;</span>
+</span><span class='line'>    <span class="n">x</span><span class="o">.</span><span class="n">_1</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">_2</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As shown here, <code>^^</code> operator takes parser on a left and a converter function
+on a right, and a result is a parser which returns converted result.</p>
+
+<p>If you are afraid of pseudo-graphic operators, don&rsquo;t be &ndash; there&rsquo;s more to come.</p>
+
+<h3>Creating a model</h3>
+
+<p>Before we can parse, I advise to create a model for our workflows, so we have a stable ground
+to work on.</p>
+
+<figure class='code'><figcaption><span>model/model.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">model</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Step</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">],</span> <span class="n">start</span><span class="k">:</span> <span class="kt">Boolean</span><span class="o">)</span>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Workflow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">steps</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">Step</span><span class="o">])</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is just enough to get started.</p>
+
+<h3>Converting grammar</h3>
+
+<p>Let&rsquo;s start with creating simple non-converting parser:</p>
+
+<figure class='code'><figcaption><span>parsers/parser.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">object</span> <span class="nc">WorkflowParsers</span> <span class="k">extends</span> <span class="nc">JavaTokenParsers</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">workflows</span> <span class="k">=</span> <span class="n">workflow</span><span class="o">.*</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">workflow</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;workflow&quot;</span> <span class="o">~&gt;</span> <span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;{&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">step</span><span class="o">.*</span> <span class="o">&lt;~</span> <span class="o">(</span><span class="s">&quot;}&quot;</span> <span class="o">~</span> <span class="s">&quot;;&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">step</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;start&quot;</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;step&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">~</span> <span class="n">goesTo</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;;&quot;</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">goesTo</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I promised there will be more pseudo-graphics coming. Let&rsquo;s me explain few new things:</p>
+
+<ul>
+<li><code>parser.*</code> means zero-or-many combinator, so created parser will be executed zero or many times. In
+example, workflows file contains zero or more workflow definitions</li>
+<li>strings are implicitly converted to parsers, so <code>"workflow"</code> is actually a parser which accepts &lsquo;workflow&rsquo; string</li>
+<li><code>ident</code> is a parser, which parses a Java identifier</li>
+<li><code>parser1 ~&gt; parser2</code> means that both parsers are executed, but only result of right one is stored,
+so <code>"workflow" ~&gt; ident</code> ensures there&rsquo;s a <code>workflow</code> word before an identifier, but result will
+store only identifier value. Same for <code>&lt;~</code>, which drops the right value and stores left</li>
+<li><code>parser.?</code> is optional combinator, so <code>goesTo.?</code> means there can be or not be <code>goes to</code> part
+in step definition</li>
+</ul>
+
+
+<p>With that in mind, you probably should be able to read through parser definition and see
+it&rsquo;s the same we expressed in ANTLR4 grammar. Let&rsquo;s load this into console and have a look at types generated for us.</p>
+
+<figure class='code'><figcaption><span>parsers/parser.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">goesTo</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]]</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">workflows</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]</span>,<span class="kt">Option</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]]]]]]]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Wow, if for simple parser <code>goesTo</code> it&rsquo;s theoretically readable, for top-level <code>workflows</code> parser it quickly gets out of control.
+We should use our converter functions to get return result to something more usable. I&rsquo;m going to start with <code>goesTo</code>. First, I&rsquo;ll
+explicitly set a type to more desired one:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">def</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>  <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we try to compile that, we will get a compile error. I want to fix it, but I don&rsquo;t want to
+write working implementation right away, as I want to use TDD here. So I came for help to <code>???</code>
+operator I described earlier:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>     <span class="k">_</span> <span class="k">=&gt;</span> <span class="o">???</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>What I&rsquo;m writing here &ndash; I want to convert parse result to <code>List[String]</code>, but I&rsquo;m not sure
+about implementation yet, so compile this but throw an error in runtime if someone calls this.</p>
+
+<p>It&rsquo;s time to write some tests:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">parsers</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.specs2.mutable._</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.specs2.ScalaCheck</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">WorkflowParsers._</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">WorkflowParserSpec</span> <span class="k">extends</span> <span class="nc">Specification</span> <span class="o">{</span>
+</span><span class='line'>  <span class="s">&quot;Parser&quot;</span> <span class="n">should</span> <span class="o">{</span>
+</span><span class='line'>    <span class="s">&quot;parse goes to&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>       <span class="n">parseAll</span><span class="o">(</span><span class="n">goesTo</span><span class="o">,</span> <span class="s">&quot;goes to one, two, three&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>         <span class="nc">List</span><span class="o">(</span><span class="s">&quot;one&quot;</span><span class="o">,</span> <span class="s">&quot;two&quot;</span><span class="o">,</span> <span class="s">&quot;three&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note <code>.get</code> method, which is a sneak around type system to give us ability
+to take parse result without working on failure conditions. If parse fails, <code>.get</code>
+throws exception in runtime, which is good enough for testing. Anyway, in
+production code we should use some more consistent approach and I&rsquo;ll go to that in next posts.</p>
+
+<p>If we run a test, we&rsquo;ll receive <code>implementation is missing</code> error, which is exactly what we expected. Let&rsquo;s
+now flesh out an implementation:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>     <span class="k">case</span> <span class="n">list</span> <span class="o">~</span> <span class="n">last</span> <span class="k">=&gt;</span> <span class="n">list</span> <span class="o">:+</span> <span class="n">last</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We saw our non-converting parser returns <code>~[List[String], List]</code> class and it is implemented in a way
+it makes possible pattern-matching on that. It makes possible a trick <code>case list ~ last</code>, where
+<code>list</code> and <code>last</code> are deconstructed values of parser result. What we need to do is to append
+last result to a list &ndash; and it&rsquo;s done with <code>:+</code> list operator. Run a test and it succeeds.</p>
+
+<p>If we load a console once more, we&rsquo;ll notice that not only type of <code>goesTo</code> parser changes, but
+of all the other parsers make on top of that:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">goesTo</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">workflows</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]</span>,<span class="kt">Option</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]]]]]]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Doing other parser</h3>
+
+<p>Let&rsquo;s convert other parsers.</p>
+
+<figure class='code'><figcaption><span>parser/parser.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">workflows</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Workflow</span><span class="o">]]</span> <span class="k">=</span> <span class="n">workflow</span><span class="o">.*</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">workflow</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Workflow</span><span class="o">]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;workflow&quot;</span> <span class="o">~&gt;</span> <span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;{&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">step</span><span class="o">.*</span> <span class="o">&lt;~</span> <span class="o">(</span><span class="s">&quot;}&quot;</span> <span class="o">~</span> <span class="s">&quot;;&quot;</span><span class="o">)</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">_</span> <span class="k">=&gt;</span> <span class="o">???</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">step</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Step</span><span class="o">]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;start&quot;</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;step&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">~</span> <span class="n">goesTo</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;;&quot;</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>     <span class="k">_</span> <span class="k">=&gt;</span> <span class="o">???</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And now let&rsquo;s have some tests:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="s">&quot;parse start step&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="n">step</span><span class="o">,</span> <span class="s">&quot;start step name goes to one, two, three;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Step</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="s">&quot;one&quot;</span><span class="o">,</span> <span class="s">&quot;two&quot;</span><span class="o">,</span> <span class="s">&quot;three&quot;</span><span class="o">),</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="s">&quot;parse empty step&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="n">step</span><span class="o">,</span> <span class="s">&quot;step name;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Step</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(),</span> <span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="s">&quot;parse empty workflow&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="n">workflow</span><span class="o">,</span> <span class="s">&quot;&quot;&quot;workflow wf {};&quot;&quot;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Workflow</span><span class="o">(</span><span class="s">&quot;wf&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">())</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="s">&quot;parse not-empty workflow&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="n">workflow</span><span class="o">,</span> <span class="s">&quot;&quot;&quot;workflow wf {</span>
+</span><span class='line'><span class="s">                          start step one goes to two;</span>
+</span><span class='line'><span class="s">                          step two;</span>
+</span><span class='line'><span class="s">                        };&quot;&quot;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Workflow</span><span class="o">(</span><span class="s">&quot;wf&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Step</span><span class="o">(</span><span class="s">&quot;one&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="s">&quot;two&quot;</span><span class="o">),</span> <span class="kc">true</span><span class="o">),</span> <span class="nc">Step</span><span class="o">(</span><span class="s">&quot;two&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(),</span> <span class="kc">false</span><span class="o">)))</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I know there&rsquo;s a lot duplications and I&rsquo;m going to do some refactoring in my next post.</p>
+
+<p>I encourage you to go ahead and try to fix those tests by yourself. I have created a tagged revision
+so it should be easier for you to setup environment:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='sh'><span class='line'>git clone https://github.com/ytaras/scala_waas.git
+</span><span class='line'><span class="nb">cd </span>scala_waas
+</span><span class='line'>git checkout day1-homework
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I also submitted a solution for the impatient &ndash; have a look at tag <code>day1-homework-solved</code>,
+anyway you&rsquo;ll learn better if you try to do the homework yourself.</p>
+
+<h3>Conclusion</h3>
+
+<p>This was a long post. Hopefully, it was useful, as I&rsquo;m going to continue hacking our new and shiny WAAS service.
+I&rsquo;m looking forward for receiving comments and questions from you &ndash; and will meet in the next post.</p>
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Scala Workshop - day 0]]></title>
     <link href="http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/"/>
     <updated>2013-04-29T00:00:00+03:00</updated>
     <id>http://ytaras.github.io/blog/2013/04/29/scala_workshop_0</id>
-    <content type="html"><![CDATA[<p>I love Scala. It&#8217;s combines goodies from JVM and Java infrastructure,
-Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t inherit
+    <content type="html"><![CDATA[<p>I love Scala. It&rsquo;s combines goodies from JVM and Java infrastructure,
+Haskell and dynamic languages like Ruby &ndash; and it almost doesn&rsquo;t inherit
 Java programming language deceases.</p>
 
 <p>Anyway, I always wanted to create some end-to-end project using Scala
-technologies - but never did as  I&#8217;m working with completely different
+technologies &ndash; but never did as  I&rsquo;m working with completely different
 technology set. So, I decided to come up with some fake business idea
-and implement it. I&#8217;m going to use interesting libraries like Akka and
-Scalaz in that task, God help me! I&#8217;m going to describe things step by
+and implement it. I&rsquo;m going to use interesting libraries like Akka and
+Scalaz in that task, God help me! I&rsquo;m going to describe things step by
 step so people with no experience in Scala can pick it up and proceed
 with me.</p>
 
@@ -39,43 +594,43 @@ with me.</p>
 <li>Functional dependency injection via implicit parameters</li>
 <li>Properties checking with ScalaCheck</li>
 <li>Concurrency with Akka actors</li>
-<li>RIA with Play2 or Lift or JS/Scalatra - yet to decide</li>
+<li>RIA with Play2 or Lift or JS/Scalatra &ndash; yet to decide</li>
 </ul>
 
 
-<p>I&#8217;m also going to focus more on functional side of Scala as I see it.</p>
+<p>I&rsquo;m also going to focus more on functional side of Scala as I see it.</p>
 
 <!-- more -->
 
 
 <h2>Goal</h2>
 
-<p>I&#8217;ve come with following fake &#8216;business idea&#8217;: we&#8217;ll be building a
+<p>I&rsquo;ve come with following fake &lsquo;business idea&rsquo;: we&rsquo;ll be building a
 service, which provides workflow capabilities. You should be able to
 submit workflow definitions in textual format and after that create some
 objects, assign them to workflows and traverse them from step to step. I
 foresee a lot of users working with that service, so I want to do that
-as scalable as I can. I will call that stuff WAAS -
-Workflow-as-a-Service, just because W-buzzword isn&#8217;t taken yet.</p>
+as scalable as I can. I will call that stuff WAAS &ndash;
+Workflow-as-a-Service, just because W-buzzword isn&rsquo;t taken yet.</p>
 
-<p>You see what I&#8217;m doing here - I just came up with a task which requires
+<p>You see what I&rsquo;m doing here &ndash; I just came up with a task which requires
 Web, parsing, scalability and persistence. Hopefully it will help me and
 you to put different pieces of Scala infrastructure together.</p>
 
 <h2>What you should know</h2>
 
-<p>You should be familiar with Scala syntax - at least not scared with it.
-I&#8217;m not going to explain, what a <code>trait</code>, <code>val</code> or <code>def</code> keyword means.
-If you want to read some introductory stuff - I can recommend  <a href="http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees">Scala for Java refugees</a> or <a href="http://www.naildrivin5.com/scalatour">Another tour of Scala</a>.</p>
+<p>You should be familiar with Scala syntax &ndash; at least not scared with it.
+I&rsquo;m not going to explain, what a <code>trait</code>, <code>val</code> or <code>def</code> keyword means.
+If you want to read some introductory stuff &ndash; I can recommend  <a href="http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees">Scala for Java refugees</a> or <a href="http://www.naildrivin5.com/scalatour">Another tour of Scala</a>.</p>
 
 <h2>Starting</h2>
 
 <p>If you are familiar with Scala infrastructure, you may skip the rest of
-this post - I will talk a bit about SBT, Specs2 and ScalaCheck here.</p>
+this post &ndash; I will talk a bit about SBT, Specs2 and ScalaCheck here.</p>
 
 <p>So, de-facto standard in building Scala project is <a href="http://www.scala-sbt.org/">Simple Build Tool</a>.
 Go ahead and install it using site instructions. Also I
-recommend to install JDK 7 - OpenJDK or Oracle. Once you&#8217;ve
+recommend to install JDK 7 &ndash; OpenJDK or Oracle. Once you&rsquo;ve
 done, you should be able to launch sbt:</p>
 
 <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -96,7 +651,7 @@ done, you should be able to launch sbt:</p>
 
 <p></p>
 
-<p>Nice! It says we don&#8217;t have a project definition here, so we should go
+<p>Nice! It says we don&rsquo;t have a project definition here, so we should go
 ahead and create one:</p>
 
 <figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -117,7 +672,7 @@ ahead and create one:</p>
 
 <p>Now you should be able to run <code>sbt console</code> and get Scala console
 running. It can take some time as it downloads Scala 2.10.1 binaries.
-So far we didn&#8217;t do anything interesting - we just specified Scala
+So far we didn&rsquo;t do anything interesting &ndash; we just specified Scala
 version to use and added few OSS repositories to be able to access most
 Scala libs in future. Now lets try some TDD cycle.</p>
 
@@ -140,26 +695,26 @@ RSpec experience but still has nice integration with some other libs.</p>
 <p></p>
 
 <p>If you are familiar with Maven or Apache Ivy, you can get whats going on
-here - you&#8217;re specifying a group, lib and version and put that into
-&#8216;test&#8217; configuration. Notice that double % is not a typo - it&#8217;s a SBT
-hack to overcome Scala&#8217;s binary incompatibility between versions. Long
+here &ndash; you&rsquo;re specifying a group, lib and version and put that into
+&lsquo;test&rsquo; configuration. Notice that double % is not a typo &ndash; it&rsquo;s a SBT
+hack to overcome Scala&rsquo;s binary incompatibility between versions. Long
 story short, every Scala lib tends to have compiled versions for every
 recent Scala version and %% operator picks one based on the current
 Scala you are running on.</p>
 
 <p>If you have SBT console (that one, which is opened with <code>sbt</code> command,
 not a Scala console, which is issued by <code>sbt console</code>), you can hit
-<code>reload</code> there to pick up new project definition. If not - you can just
+<code>reload</code> there to pick up new project definition. If not &ndash; you can just
 open new SBT shell and will be done for you. Now try typing <code>test</code> into
-SBT console - it will download binaries if needed, try to compile
+SBT console &ndash; it will download binaries if needed, try to compile
 non-existing product and test files and will gracefully shut down with
 message about no found tests. Nice! This is your first green build. It
 is said, that ideal code is no code, so now you have ideal project done
 :)</p>
 
-<p>Now let&#8217;s start continuous testing - run <code>~ test</code> in SBT shell. It will
+<p>Now let&rsquo;s start continuous testing &ndash; run <code>~ test</code> in SBT shell. It will
 monitor your source files and relaunch test suite once you saved your
-code. Let&#8217;s add first test file <code>src/test/scala/CalculatorSpec.scala</code></p>
+code. Let&rsquo;s add first test file <code>src/test/scala/CalculatorSpec.scala</code></p>
 
 <figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -174,8 +729,8 @@ code. Let&#8217;s add first test file <code>src/test/scala/CalculatorSpec.scala<
 
 <p></p>
 
-<p>Nothing special is going on here - adding necessary imports and
-extending specific class. Let&#8217;s add a first specification. Scala
+<p>Nothing special is going on here &ndash; adding necessary imports and
+extending specific class. Let&rsquo;s add a first specification. Scala
 language features made possible fluent specs declarations similar to RSpec:</p>
 
 <figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -195,17 +750,17 @@ language features made possible fluent specs declarations similar to RSpec:</p>
 
 <p>When you save file you should notice pretty-printed specs with success
 message. As a side-note, what we done here is a useful TDD technique
-which I call &#8216;wrapping 3rdparty object&#8217; (if you know widely adopted
+which I call &lsquo;wrapping 3rdparty object&rsquo; (if you know widely adopted
 name, please let me know). Idea here is that we write unit tests for
-3rd-party components, which we don&#8217;t write and control, to ensure our
-expectation matches it&#8217;s real behavior. I don&#8217;t say you should test all
+3rd-party components, which we don&rsquo;t write and control, to ensure our
+expectation matches it&rsquo;s real behavior. I don&rsquo;t say you should test all
 standard lib as I do here, but it may help you if you
-unsure what some specific method does in 3rd party library - write down
+unsure what some specific method does in 3rd party library &ndash; write down
 a test, make it pass and submit it to your SCM. If version upgrade will
 break your expectations (and possibly your code) you will be notified
 immediately.</p>
 
-<p>But enough theory. Let&#8217;s create a calculator - it&#8217;s a common showcase
+<p>But enough theory. Let&rsquo;s create a calculator &ndash; it&rsquo;s a common showcase
 for TDD.</p>
 
 <figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -224,7 +779,7 @@ for TDD.</p>
 
 
 <p>That ugly API will be our calculator. If we have a glance at our SBT
-shell we&#8217;ll notice compilation fails. So let&#8217;s add calculator definition
+shell we&rsquo;ll notice compilation fails. So let&rsquo;s add calculator definition
 into <code>src/main/scala/Calculator.scala</code>:</p>
 
 <figure class='code'><figcaption><span>src/main/scala/Calculator.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -242,20 +797,20 @@ into <code>src/main/scala/Calculator.scala</code>:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>I really place all that ??? in my code, that&#8217;s a Scala construct. Long
-story short, it&#8217;s a placeholder for your implementation which has
+<p>I really place all that ??? in my code, that&rsquo;s a Scala construct. Long
+story short, it&rsquo;s a placeholder for your implementation which has
 whatever type you specify but throws exception in runtime<br/>
-Scala has very powerful type systems - comparable to Haskell one&#8217;s - so
+Scala has very powerful type systems &ndash; comparable to Haskell one&rsquo;s &ndash; so
 usually you make use of it and make sure a lot of errors are caught by
 compiler. Some techniques exists for that and I will mention them in
 future posts. Anyway, with TDD we want to do one step at a time, so ???
 placeholder allows to break Red-Green-Refactor cycle into
-Red-Compiles-Green-Refactor. Using that in adding 2 integers doesn&#8217;t
-make too much sense, but if we&#8217;re playing with more complex types
+Red-Compiles-Green-Refactor. Using that in adding 2 integers doesn&rsquo;t
+make too much sense, but if we&rsquo;re playing with more complex types
 (especially monadic ones) this technique becomes useful.<br/>
-If you have a look at SBT console, you&#8217;ll notice we moved to Compiles
-stage - tests are executed, but exception is thrown. Nice. Let&#8217;s use
-&#8216;obvious implementation&#8217; and add, well, obvious implementation for all 4
+If you have a look at SBT console, you&rsquo;ll notice we moved to Compiles
+stage &ndash; tests are executed, but exception is thrown. Nice. Let&rsquo;s use
+&lsquo;obvious implementation&rsquo; and add, well, obvious implementation for all 4
 methods:</p>
 
 <figure class='code'><figcaption><span>src/main/scala/Calculator.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -274,12 +829,12 @@ methods:</p>
 
 
 <p>I no longer need explicit return types as they are easily inferred out
-by a compiler. And&#8230; Tadam! We&#8217;re Green - and looks like there&#8217;s no
+by a compiler. And&hellip; Tadam! We&rsquo;re Green &ndash; and looks like there&rsquo;s no
 need for refactoring.</p>
 
 <p>Anyway, currently are testing only against specific values. Is there a
-way to improve a test coverage, add more sample values? That&#8217;s what&#8217;s
-<a href="https://github.com/rickynils/scalacheck">ScalaCheck</a> framework is for. Let&#8217;s try to learn it by example.<br/>
+way to improve a test coverage, add more sample values? That&rsquo;s what&rsquo;s
+<a href="https://github.com/rickynils/scalacheck">ScalaCheck</a> framework is for. Let&rsquo;s try to learn it by example.<br/>
 First, add it to your dependencies:</p>
 
 <figure class='code'><figcaption><span>project.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -305,7 +860,7 @@ and mixin to our spec, so we are able to use helpers in our specs:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Good. Let&#8217;s write our first property. What about following -
+<p>Good. Let&rsquo;s write our first property. What about following &ndash;
 Calculator.sum should return sum of two numbers it receives as
 arguments:</p>
 
@@ -322,15 +877,15 @@ arguments:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>If we save a file now, we&#8217;ll notice that result run has 108 expectations
-- this is because ScalaCheck generated 100 pairs of ints and verified if
-  satisfies specified property. Thanks to implicit&#8217;s black magic we can
+<p>If we save a file now, we&rsquo;ll notice that result run has 108 expectations
+&ndash; this is because ScalaCheck generated 100 pairs of ints and verified if
+  satisfies specified property. Thanks to implicit&rsquo;s black magic we can
 use either boolean comparisons <code>x == y</code> or Specs2 matchers <code>x must_== y</code>
-whichever suits better. Notice - we still haven&#8217;t discovered integer
-overflow here, just because we didn&#8217;t write correct assertions, for
+whichever suits better. Notice &ndash; we still haven&rsquo;t discovered integer
+overflow here, just because we didn&rsquo;t write correct assertions, for
 example that sum of positives is positive; but framework silently
-generated those edge case values for us. But, as we&#8217;re
-just learning, let&#8217;s go to something more obvious - for example,
+generated those edge case values for us. But, as we&rsquo;re
+just learning, let&rsquo;s go to something more obvious &ndash; for example,
 division:</p>
 
 <figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -343,9 +898,9 @@ division:</p>
 
 
 <p>If we try to run this, it will fail because of zero-division. There are
-different ways of handling this. Let&#8217;s imagine that we say &#8216;we never
-pass 0 as second argument to division, so we don&#8217;t care what happens
-there&#8217;. It can be easily done with ScalaCheck:</p>
+different ways of handling this. Let&rsquo;s imagine that we say &lsquo;we never
+pass 0 as second argument to division, so we don&rsquo;t care what happens
+there&rsquo;. It can be easily done with ScalaCheck:</p>
 
 <figure class='code'><figcaption><span>src/test/scala/CalculatorSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
 <span class='line-number'>2</span>
@@ -356,9 +911,9 @@ there&#8217;. It can be easily done with ScalaCheck:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>If you are scared by lot of ASCII symbols and extra parenthesis - I
+<p>If you are scared by lot of ASCII symbols and extra parenthesis &ndash; I
 encourage you to read ScalaCheck user guide, which is a really nice
-description how to write properties. If not - just believe me that this
+description how to write properties. If not &ndash; just believe me that this
 property can be read as <em>for any pair of integer such that second
 integer is not zero, following property is true</em></p>
 
@@ -377,14 +932,13 @@ files. Stay tuned!</p>
     <link href="http://ytaras.github.io/blog/2013/04/05/slides/"/>
     <updated>2013-04-05T00:00:00+03:00</updated>
     <id>http://ytaras.github.io/blog/2013/04/05/slides</id>
-    <content type="html"><![CDATA[<p>Here are my slides from presentation I gave to local JUG - introduction
+    <content type="html"><![CDATA[<p>Here are my slides from presentation I gave to local JUG &ndash; introduction
 to Scala</p>
 
-<iframe
+<p><iframe
 src="https://docs.google.com/presentation/d/1_j0lnzS3Ez4gnrYM3T9kpMeTbeAMHrgxuKSy5E8c1kE/embed?start=false&loop=false&delayms=3000"
 frameborder="0" width="480" height="389" allowfullscreen="true"
-mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
-
+mozallowfullscreen="true" webkitallowfullscreen="true"></iframe></p>
 ]]></content>
   </entry>
   
@@ -396,16 +950,16 @@ mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
     <content type="html"><![CDATA[<h2>Intro</h2>
 
 <p>Every functional programmer should write an article about what FP is at
-all and I&#8217;m not an exception. Next step should be another monad tutorial
-- and it&#8217;s still on it&#8217;s way.</p>
+all and I&rsquo;m not an exception. Next step should be another monad tutorial
+&ndash; and it&rsquo;s still on it&rsquo;s way.</p>
 
 <h2>Introduction to functional programming</h2>
 
-<p>So, what is functional programming at all? Actually, there&#8217;s a lot of
-mess about that - functional programming, functional language,
+<p>So, what is functional programming at all? Actually, there&rsquo;s a lot of
+mess about that &ndash; functional programming, functional language,
 functional features are different things, even if these terms are
 sometimes confused one with another. For example, I even heard that
-JavaScript is a functional language as it&#8217;s allows passing functions as
+JavaScript is a functional language as it&rsquo;s allows passing functions as
 parameters:</p>
 
 <figure class='code'><figcaption><span>example.js</span><a href='http://en.wikipedia.org/wiki/Higher-order_function'>Wikipedia</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -437,14 +991,14 @@ parameters:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>So, let&#8217;s put a couple of definition:</p>
+<p>So, let&rsquo;s put a couple of definition:</p>
 
 <ul>
 <li>Functional language is a programming language which enables,
 encourages or even enforces functional programming.</li>
 <li>Functional features are features of a programming language or a
 library, which makes functional programming easier</li>
-<li>Functional programming is&#8230; well, let&#8217;s talk about that below</li>
+<li>Functional programming is&hellip; well, let&rsquo;s talk about that below</li>
 </ul>
 
 
@@ -453,12 +1007,12 @@ functional programming as a paradigm easier; and we can use those
 definitions to determine if some programming language is a functional
 language or not. Whew, enough of F-word :)</p>
 
-<p>But we have one more definition to fill up - functional programming or
+<p>But we have one more definition to fill up &ndash; functional programming or
 functional paradigm (FP). This is done by contrast usually and I will
 follow that path, but with one small deviation. Usually FP is being
 compared to imperative programming whatever it means. Also is being said
-that FP and OOP are orthogonal and don&#8217;t deny each other. I&#8217;m going to
-argue with that. So, before going to FP lang, let&#8217;s see what we have in
+that FP and OOP are orthogonal and don&rsquo;t deny each other. I&rsquo;m going to
+argue with that. So, before going to FP lang, let&rsquo;s see what we have in
 OOP.</p>
 
 <!-- more -->
@@ -466,14 +1020,14 @@ OOP.</p>
 
 <h2>OOP reprise</h2>
 
-<p>Here&#8217;s a definition given by Alan Key:</p>
+<p>Here&rsquo;s a definition given by Alan Key:</p>
 
 <blockquote><p>1. Everything is an object.<br/>2. Objects communicate by sending and receiving messages (in terms of objects).<br/>3. Objects have their own memory (in terms of objects).<br/>4. Every object is an instance of a class (which must be an object).<br/>5. The class holds the shared behavior for its instances (in the form of objects in a program list)</p><footer><strong>Alan Key</strong> <cite><a href='http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented'>c2.com/cgi/&hellip;</a></cite></footer></blockquote>
 
 
 <p></p>
 
-<p>What&#8217;s interesting here is #2 and #3. Objects communicate by sending and
+<p>What&rsquo;s interesting here is #2 and #3. Objects communicate by sending and
 receiving objects, for example:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -481,8 +1035,8 @@ receiving objects, for example:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>That&#8217;s valid Ruby code, which sends a message <code>full_name</code> to object
-<code>user</code> and writes response to <code>result</code> variable. Of course, there&#8217;s a
+<p>That&rsquo;s valid Ruby code, which sends a message <code>full_name</code> to object
+<code>user</code> and writes response to <code>result</code> variable. Of course, there&rsquo;s a
 shorter version, which is in fact a syntactic sugar:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -490,15 +1044,15 @@ shorter version, which is in fact a syntactic sugar:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>It doesn&#8217;t matter if we&#8217;re talking about static or dynamic languages,
-Java, C#, Ruby, Smalltalk or Python - every method call can be presented
+<p>It doesn&rsquo;t matter if we&rsquo;re talking about static or dynamic languages,
+Java, C#, Ruby, Smalltalk or Python &ndash; every method call can be presented
 as sending a message. We can see simplest basic blocks of OOP are
 objects and messages aka methods.</p>
 
-<p>Looks like it&#8217;s easy with #2, but what about #3? It says every object
-has it&#8217;s own memory (which can be revealed only by sending and received
-messages, by the way). In example before object&#8217;s memory contains,
-probably, last and first names of a person. But what&#8217;s not said here -
+<p>Looks like it&rsquo;s easy with #2, but what about #3? It says every object
+has it&rsquo;s own memory (which can be revealed only by sending and received
+messages, by the way). In example before object&rsquo;s memory contains,
+probably, last and first names of a person. But what&rsquo;s not said here &ndash;
 can incoming message mutate internal state of an object? Is following
 code valid?</p>
 
@@ -535,43 +1089,43 @@ code valid?</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Most of the time programming language designers answer &#8216;Yes&#8217; to that
-question. Python, JavaScript, C#, Java, Ruby, Smalltalk - all of them
+<p>Most of the time programming language designers answer &lsquo;Yes&rsquo; to that
+question. Python, JavaScript, C#, Java, Ruby, Smalltalk &ndash; all of them
 accept objects mutability despite of the differences in those language
-implementations. In fact, it comes implicitly from a definition - Alan
-Key used a word &#8216;memory&#8217;, so it implies that object can &#8216;remember&#8217; what
-happened with it before - and this is a mutability.</p>
+implementations. In fact, it comes implicitly from a definition &ndash; Alan
+Key used a word &lsquo;memory&rsquo;, so it implies that object can &lsquo;remember&rsquo; what
+happened with it before &ndash; and this is a mutability.</p>
 
 <h2>Other look</h2>
 
-<p>FP doesn&#8217;t give another answer to &#8216;internal state mutability&#8217; question
-because FP doesn&#8217;t speak in terms of objects and messages, but if it
-would we would say &#8216;no, objects are not allowed to change it&#8217;s state
-once the are created&#8217;. If you haven&#8217;t heard about that before and can
-bring only one item out of this article - let it be this one:</p>
+<p>FP doesn&rsquo;t give another answer to &lsquo;internal state mutability&rsquo; question
+because FP doesn&rsquo;t speak in terms of objects and messages, but if it
+would we would say &lsquo;no, objects are not allowed to change it&rsquo;s state
+once the are created&rsquo;. If you haven&rsquo;t heard about that before and can
+bring only one item out of this article &ndash; let it be this one:</p>
 
 <p><em>Functional programming is a programming using immutable data
 structures and immutable references</em></p>
 
-<p>This is not accurate and not full definition of FP - but I consider this
+<p>This is not accurate and not full definition of FP &ndash; but I consider this
 as most important part of a paradigm. FP is an art of restricting
-yourself to immutable things - and all other stuff comes from that.
-Let&#8217;s see, if we can still write meaningful things without
+yourself to immutable things &ndash; and all other stuff comes from that.
+Let&rsquo;s see, if we can still write meaningful things without
 mutability.</p>
 
-<p>Smallest building block in FP is a pure function. There&#8217;s a lot of smart
-words around that - <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
+<p>Smallest building block in FP is a pure function. There&rsquo;s a lot of smart
+words around that &ndash; <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
  or <a href="http://en.wikipedia.org/wiki/Morphism">morphism</a>, but in simple words pure function is a
 plain old programming function, which has 2 properties:</p>
 
 <ol>
-<li>It&#8217;s result depends only on input parameters</li>
-<li>It&#8217;s only job is to calculate it&#8217;s result, it does nothing else - in
-other words, it doesn&#8217;t have side effects.</li>
+<li>It&rsquo;s result depends only on input parameters</li>
+<li>It&rsquo;s only job is to calculate it&rsquo;s result, it does nothing else &ndash; in
+other words, it doesn&rsquo;t have side effects.</li>
 </ol>
 
 
-<p>I&#8217;m sure you uderstood already what pure function is, but let&#8217;s have
+<p>I&rsquo;m sure you uderstood already what pure function is, but let&rsquo;s have
 some examples:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -613,10 +1167,10 @@ some examples:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Let&#8217;s have few extra words about last case. As I said before, we can say
-it&#8217;s sending a message &#8216;length&#8217; to object &#8220;Some string&#8221;, but on the
-other side, there&#8217;s nothing wrong in looking on it as a function length
-with one parameter &#8220;Some string&#8221;. A fact that strings are immutable in
+<p>Let&rsquo;s have few extra words about last case. As I said before, we can say
+it&rsquo;s sending a message &lsquo;length&rsquo; to object &ldquo;Some string&rdquo;, but on the
+other side, there&rsquo;s nothing wrong in looking on it as a function length
+with one parameter &ldquo;Some string&rdquo;. A fact that strings are immutable in
 Java helps in that paradigm shift a lot.</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -628,7 +1182,7 @@ Java helps in that paradigm shift a lot.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>Let&#8217;s add this to our definitions:</p>
+<p>Let&rsquo;s add this to our definitions:</p>
 
 <p><em>Functional programming is a programming using only immutable
 references/data structures and pure functions</em></p>
@@ -636,29 +1190,29 @@ references/data structures and pure functions</em></p>
 <h2>So what?</h2>
 
 <p>Ok, forbidden ourselfves to use mutations, we forgot about objects and
-messages and we are using functions instead - for what? Why on Earth
+messages and we are using functions instead &ndash; for what? Why on Earth
 would I use only a subset of possible ways to express a logic of a
 program? Why should I restrict myself to writing only pure functions?</p>
 
 <p>Think about the following:</p>
 
-<p>Only thing that interests us with pure function is it&#8217;s result. In fact,
-we can replace call to pure function with it&#8217;s result value - and it
-won&#8217;t change what our program does. By the way, this property is called
+<p>Only thing that interests us with pure function is it&rsquo;s result. In fact,
+we can replace call to pure function with it&rsquo;s result value &ndash; and it
+won&rsquo;t change what our program does. By the way, this property is called
 referential transparency.</p>
 
-<p>But there&#8217;s a lot of options for you to get the result value. You can
+<p>But there&rsquo;s a lot of options for you to get the result value. You can
 calculate result during compilation if you know function arguments in
 compile time. Or in another thread. Or in another process. Or at another
-machine. Or you can not calculate the value before it&#8217;s really needed.
+machine. Or you can not calculate the value before it&rsquo;s really needed.
 Or you can cache the value and return result from cache for same
 function arguments.</p>
 
-<p>Oh, by the way, did I mention multithreading? Usually it&#8217;s almost
+<p>Oh, by the way, did I mention multithreading? Usually it&rsquo;s almost
 physical pain to debug a mutlithreaded program build in conventional
-way. FP changes that - doesn&#8217;t matter which thread executed the specific
+way. FP changes that &ndash; doesn&rsquo;t matter which thread executed the specific
 function or if it executed at all. In fact, there are prototypes of
-automatic program paralellization. Think about that - program which
+automatic program paralellization. Think about that &ndash; program which
 knows nothing about multithreading at all, can be run in mutlithreading
 environment.</p>
 
@@ -667,7 +1221,7 @@ environment.</p>
 <p>Ok, but what if we need mutations? What do we do to change last name of
 existing user?</p>
 
-<p>Well, we don&#8217;t. Instead of destructive updates - we copy to new instance
+<p>Well, we don&rsquo;t. Instead of destructive updates &ndash; we copy to new instance
 every time we need to change something:</p>
 
 <figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -685,34 +1239,34 @@ every time we need to change something:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>That looks like a huge waste of resources - when we are changing things
-a lot, we&#8217;re going to have a lot of copies in our memory. Anyway, fact
+<p>That looks like a huge waste of resources &ndash; when we are changing things
+a lot, we&rsquo;re going to have a lot of copies in our memory. Anyway, fact
 that all our data structures are immutable, opens a door for some
 optimizations which can be done by compiler or runtime, for example you
-can reuse structures or it&#8217;s parts in different places. Because things
+can reuse structures or it&rsquo;s parts in different places. Because things
 are immutable, we can not fear one part of our program impacting other
 by implicitly changing state of a shared structure.</p>
 
 <p>With that whole class of concurrency problems just go away, so using
-immutable structures is a good idea not only in FP, but in OOP as well -
-Joshua Bloch recommends &#8220;Minimize mutability&#8221; in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
+immutable structures is a good idea not only in FP, but in OOP as well &ndash;
+Joshua Bloch recommends &ldquo;Minimize mutability&rdquo; in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
 
 <h2>FP distilled</h2>
 
-<p>So, we have immutable structures and pure functions - and those are
-building blocks in FP. If you restrict yourself to this things - you&#8217;re
-doing FP, if you relax a restriction and doing some other things -
-you&#8217;re outside of FP land.</p>
+<p>So, we have immutable structures and pure functions &ndash; and those are
+building blocks in FP. If you restrict yourself to this things &ndash; you&rsquo;re
+doing FP, if you relax a restriction and doing some other things &ndash;
+you&rsquo;re outside of FP land.</p>
 
-<p>Also notice we&#8217;ve lost notice of objects and messages - we don&#8217;t need
-them anymore. As I said before, it&#8217;s just a matter of syntax - do we put
+<p>Also notice we&rsquo;ve lost notice of objects and messages &ndash; we don&rsquo;t need
+them anymore. As I said before, it&rsquo;s just a matter of syntax &ndash; do we put
 first argument first or after function name:</p>
 
-<p>In FP we don&#8217;t mix data and behavior inside of our objects, instead we
-have them split in different places - our data structures are skinny and
+<p>In FP we don&rsquo;t mix data and behavior inside of our objects, instead we
+have them split in different places &ndash; our data structures are skinny and
 contain only data and our functions work with every argument they are
-provided with - if it conform some preconditions, of course. Note, we
-haven&#8217;t talked about types yet - but we&#8217;re going to do that in next
+provided with &ndash; if it conform some preconditions, of course. Note, we
+haven&rsquo;t talked about types yet &ndash; but we&rsquo;re going to do that in next
 parts of a series.</p>
 ]]></content>
   </entry>
@@ -723,15 +1277,15 @@ parts of a series.</p>
     <updated>2013-03-29T11:15:00+02:00</updated>
     <id>http://ytaras.github.io/blog/2013/03/29/presentations</id>
     <content type="html"><![CDATA[<p>I want to share two presentations I gave to my coworkers. They cover
-concepts I&#8217;m actively learning right now - Domain Driven Design,
+concepts I&rsquo;m actively learning right now &ndash; Domain Driven Design,
 Command-Query Responsibility Separation and Event Sourcing. Funny, but
-when talking about DDD I didn&#8217;t manage to make it within one hour; so it
-gave me good insight about technical presentations - it&#8217;s not about what
-you&#8217;re going to add to your talk, it&#8217;s about what your going to remove
-from it to focus only on things that matter - and let the listeners to
-find out about things you&#8217;ve skipped on their own.</p>
+when talking about DDD I didn&rsquo;t manage to make it within one hour; so it
+gave me good insight about technical presentations &ndash; it&rsquo;s not about what
+you&rsquo;re going to add to your talk, it&rsquo;s about what your going to remove
+from it to focus only on things that matter &ndash; and let the listeners to
+find out about things you&rsquo;ve skipped on their own.</p>
 
-<p>If you see mistakes in those slides, please let me know - I&#8217;m still
+<p>If you see mistakes in those slides, please let me know &ndash; I&rsquo;m still
 learning and willing to know if I understand something wrong.</p>
 
 <iframe allowfullscreen="" frameborder="0" height="356" marginheight="0"
@@ -743,14 +1297,13 @@ style="border-width: 1px 1px 0; border: 1px solid #CCC; margin-bottom:
 
 <p> <br /></p>
 
-<div style="margin-bottom: 5px;">
+<p><div style="margin-bottom: 5px;">
 <iframe allowfullscreen="" frameborder="0" height="356" marginheight="0"
 marginwidth="0" mozallowfullscreen="" scrolling="no"
 src="http://www.slideshare.net/slideshow/embed_code/17868431"
 style="border-width: 1px 1px 0; border: 1px solid #CCC; margin-bottom:
 5px;" webkitallowfullscreen="" width="427"> </iframe> <br />
-<div style="margin-bottom: 5px;">
-
+<div style="margin-bottom: 5px;"></p>
 ]]></content>
   </entry>
   
@@ -761,38 +1314,38 @@ style="border-width: 1px 1px 0; border: 1px solid #CCC; margin-bottom:
     <id>http://ytaras.github.io/blog/2013/03/29/hello</id>
     <content type="html"><![CDATA[<p>Let me introduce myself.</p>
 
-<p>My name is Yuriy, I live in Lviv, Ukraine, and I&#8217;m a software developer.</p>
+<p>My name is Yuriy, I live in Lviv, Ukraine, and I&rsquo;m a software developer.</p>
 
-<p>I&#8217;ve tried to pick up a title for me for a while and I didn&#8217;t come with
-anything better than &#8216;software developer&#8217; - I don&#8217;t want to tie myself
-to things like &#8216;coder&#8217;, &#8216;tech lead&#8217;, &#8216;scrum master&#8217; or anything similar
-- still I was in all that shoes in my career.</p>
+<p>I&rsquo;ve tried to pick up a title for me for a while and I didn&rsquo;t come with
+anything better than &lsquo;software developer&rsquo; &ndash; I don&rsquo;t want to tie myself
+to things like &lsquo;coder&rsquo;, &lsquo;tech lead&rsquo;, &lsquo;scrum master&rsquo; or anything similar
+&ndash; still I was in all that shoes in my career.</p>
 
 <p>My first commercial job was a Perl coder in 2004 in small outsourcing
-company in Ternopil, Ukraine. From there I&#8217;ve switched to Java and now
-to Ruby development. Still, that&#8217;s not a thing I&#8217;m really proud about
+company in Ternopil, Ukraine. From there I&rsquo;ve switched to Java and now
+to Ruby development. Still, that&rsquo;s not a thing I&rsquo;m really proud about
 and which I want to share.</p>
 
-<p>I would like to write in this blog about modern tools and languages -
+<p>I would like to write in this blog about modern tools and languages &ndash;
 especially languages, as I consider learning new programming language as
 the most exiting part of a software development. I hope to write about
-Scala, Ruby, Haskell - but not limited to ones. Also I&#8217;m interested
-about bigger things - as long as they are still technical. That said, I
+Scala, Ruby, Haskell &ndash; but not limited to ones. Also I&rsquo;m interested
+about bigger things &ndash; as long as they are still technical. That said, I
 hope to cover software architecture and system architecture in my posts.</p>
 
-<p>I don&#8217;t consider this blog as a place for me to share my personal
-things. I don&#8217;t think people that came here to read about, say, Scala,
-would care how did I spend my weekends - did I go caving or skiing or
+<p>I don&rsquo;t consider this blog as a place for me to share my personal
+things. I don&rsquo;t think people that came here to read about, say, Scala,
+would care how did I spend my weekends &ndash; did I go caving or skiing or
 mountain tracking (still this is a usual way for me to spend a weekend).
-So don&#8217;t be afraid to add it to your RSS reader - no porn, no kitties,
+So don&rsquo;t be afraid to add it to your RSS reader &ndash; no porn, no kitties,
 no photos with my family. Only software development, only hardcore.<br/>
-And the last thing I&#8217;m going to write about in this post is to answer a
-question - why do I want to have this blog in a first place? Answer is
-simple - writing about things helps to organize you minds and knowledge
+And the last thing I&rsquo;m going to write about in this post is to answer a
+question &ndash; why do I want to have this blog in a first place? Answer is
+simple &ndash; writing about things helps to organize you minds and knowledge
 about that things. Of course, knowing that the blog is useful to someone
 would be a great encouragement.</p>
 
-<p>So now lets click Publish - and see what happens next. I hope it will be
+<p>So now lets click Publish &ndash; and see what happens next. I hope it will be
 something exciting :)</p>
 ]]></content>
   </entry>

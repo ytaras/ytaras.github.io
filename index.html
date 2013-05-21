@@ -9,8 +9,8 @@
   <meta name="author" content="Yura Taras">
 
   
-  <meta name="description" content="I love Scala. It&#8217;s combines goodies from JVM and Java infrastructure,
-Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t &hellip;">
+  <meta name="description" content="Let&rsquo;s continue on WAAS (workflow-as-a-service). In this post I&rsquo;m going
+to show how to use parsers combinators to parse our workflow &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -84,6 +84,90 @@ Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t &hellip;">
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2013/05/10/scala-workshop-1/">Scala Workshop - Day 1, Parsers</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-05-10T14:27:00+03:00" pubdate data-updated="true">May 10<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Let&rsquo;s continue on WAAS (workflow-as-a-service). In this post I&rsquo;m going
+to show how to use parsers combinators to parse our workflow
+definitions.</p>
+
+<p>Have a look at sample workflow definition file we&rsquo;re going to parse. It
+contains 2 worflow definitions &ndash; one for issue tracking system and other
+for deals.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>workflow issue {
+</span><span class='line'>  start state open
+</span><span class='line'>                 goes to started;
+</span><span class='line'>  state started  goes to open, resolved;
+</span><span class='line'>  state resolved goes to closed, open;
+</span><span class='line'>  state closed;
+</span><span class='line'>};
+</span><span class='line'>
+</span><span class='line'>workflow project {
+</span><span class='line'>  start state negotiation
+</span><span class='line'>               goes to signed, failed;
+</span><span class='line'>  state signed goes to failed, done;
+</span><span class='line'>  state done   goes to paid, failed;
+</span><span class='line'>  state paid;
+</span><span class='line'>  state failed;
+</span><span class='line'>};</span></code></pre></td></tr></table></div></figure>
+
+
+<p>At the end of this post we&rsquo;re going to have a parser, which transforms
+textual definitions to our internal model, ready for persistense.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2013/05/10/scala-workshop-1/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2013/04/29/scala_workshop_0/">Scala Workshop - Day 0</a></h1>
     
     
@@ -107,15 +191,15 @@ Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t &hellip;">
   </header>
 
 
-  <div class="entry-content"><p>I love Scala. It&#8217;s combines goodies from JVM and Java infrastructure,
-Haskell and dynamic languages like Ruby - and it almost doesn&#8217;t inherit
+  <div class="entry-content"><p>I love Scala. It&rsquo;s combines goodies from JVM and Java infrastructure,
+Haskell and dynamic languages like Ruby &ndash; and it almost doesn&rsquo;t inherit
 Java programming language deceases.</p>
 
 <p>Anyway, I always wanted to create some end-to-end project using Scala
-technologies - but never did as  I&#8217;m working with completely different
+technologies &ndash; but never did as  I&rsquo;m working with completely different
 technology set. So, I decided to come up with some fake business idea
-and implement it. I&#8217;m going to use interesting libraries like Akka and
-Scalaz in that task, God help me! I&#8217;m going to describe things step by
+and implement it. I&rsquo;m going to use interesting libraries like Akka and
+Scalaz in that task, God help me! I&rsquo;m going to describe things step by
 step so people with no experience in Scala can pick it up and proceed
 with me.</p>
 
@@ -128,11 +212,11 @@ with me.</p>
 <li>Functional dependency injection via implicit parameters</li>
 <li>Properties checking with ScalaCheck</li>
 <li>Concurrency with Akka actors</li>
-<li>RIA with Play2 or Lift or JS/Scalatra - yet to decide</li>
+<li>RIA with Play2 or Lift or JS/Scalatra &ndash; yet to decide</li>
 </ul>
 
 
-<p>I&#8217;m also going to focus more on functional side of Scala as I see it.</p>
+<p>I&rsquo;m also going to focus more on functional side of Scala as I see it.</p>
 
 </div>
   
@@ -173,14 +257,13 @@ with me.</p>
   </header>
 
 
-  <div class="entry-content"><p>Here are my slides from presentation I gave to local JUG - introduction
+  <div class="entry-content"><p>Here are my slides from presentation I gave to local JUG &ndash; introduction
 to Scala</p>
 
-<iframe
+<p><iframe
 src="https://docs.google.com/presentation/d/1_j0lnzS3Ez4gnrYM3T9kpMeTbeAMHrgxuKSy5E8c1kE/embed?start=false&loop=false&delayms=3000"
 frameborder="0" width="480" height="389" allowfullscreen="true"
-mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
-
+mozallowfullscreen="true" webkitallowfullscreen="true"></iframe></p>
 </div>
   
   
@@ -219,16 +302,16 @@ mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
   <div class="entry-content"><h2>Intro</h2>
 
 <p>Every functional programmer should write an article about what FP is at
-all and I&#8217;m not an exception. Next step should be another monad tutorial
-- and it&#8217;s still on it&#8217;s way.</p>
+all and I&rsquo;m not an exception. Next step should be another monad tutorial
+&ndash; and it&rsquo;s still on it&rsquo;s way.</p>
 
 <h2>Introduction to functional programming</h2>
 
-<p>So, what is functional programming at all? Actually, there&#8217;s a lot of
-mess about that - functional programming, functional language,
+<p>So, what is functional programming at all? Actually, there&rsquo;s a lot of
+mess about that &ndash; functional programming, functional language,
 functional features are different things, even if these terms are
 sometimes confused one with another. For example, I even heard that
-JavaScript is a functional language as it&#8217;s allows passing functions as
+JavaScript is a functional language as it&rsquo;s allows passing functions as
 parameters:</p>
 
 <figure class='code'><figcaption><span>example.js</span><a href='http://en.wikipedia.org/wiki/Higher-order_function'>Wikipedia</a></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
@@ -260,14 +343,14 @@ parameters:</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>So, let&#8217;s put a couple of definition:</p>
+<p>So, let&rsquo;s put a couple of definition:</p>
 
 <ul>
 <li>Functional language is a programming language which enables,
 encourages or even enforces functional programming.</li>
 <li>Functional features are features of a programming language or a
 library, which makes functional programming easier</li>
-<li>Functional programming is&#8230; well, let&#8217;s talk about that below</li>
+<li>Functional programming is&hellip; well, let&rsquo;s talk about that below</li>
 </ul>
 
 
@@ -276,12 +359,12 @@ functional programming as a paradigm easier; and we can use those
 definitions to determine if some programming language is a functional
 language or not. Whew, enough of F-word :)</p>
 
-<p>But we have one more definition to fill up - functional programming or
+<p>But we have one more definition to fill up &ndash; functional programming or
 functional paradigm (FP). This is done by contrast usually and I will
 follow that path, but with one small deviation. Usually FP is being
 compared to imperative programming whatever it means. Also is being said
-that FP and OOP are orthogonal and don&#8217;t deny each other. I&#8217;m going to
-argue with that. So, before going to FP lang, let&#8217;s see what we have in
+that FP and OOP are orthogonal and don&rsquo;t deny each other. I&rsquo;m going to
+argue with that. So, before going to FP lang, let&rsquo;s see what we have in
 OOP.</p>
 
 </div>
@@ -324,15 +407,15 @@ OOP.</p>
 
 
   <div class="entry-content"><p>I want to share two presentations I gave to my coworkers. They cover
-concepts I&#8217;m actively learning right now - Domain Driven Design,
+concepts I&rsquo;m actively learning right now &ndash; Domain Driven Design,
 Command-Query Responsibility Separation and Event Sourcing. Funny, but
-when talking about DDD I didn&#8217;t manage to make it within one hour; so it
-gave me good insight about technical presentations - it&#8217;s not about what
-you&#8217;re going to add to your talk, it&#8217;s about what your going to remove
-from it to focus only on things that matter - and let the listeners to
-find out about things you&#8217;ve skipped on their own.</p>
+when talking about DDD I didn&rsquo;t manage to make it within one hour; so it
+gave me good insight about technical presentations &ndash; it&rsquo;s not about what
+you&rsquo;re going to add to your talk, it&rsquo;s about what your going to remove
+from it to focus only on things that matter &ndash; and let the listeners to
+find out about things you&rsquo;ve skipped on their own.</p>
 
-<p>If you see mistakes in those slides, please let me know - I&#8217;m still
+<p>If you see mistakes in those slides, please let me know &ndash; I&rsquo;m still
 learning and willing to know if I understand something wrong.</p>
 
 <iframe allowfullscreen="" frameborder="0" height="356" marginheight="0"
@@ -344,14 +427,13 @@ style="border-width: 1px 1px 0; border: 1px solid #CCC; margin-bottom:
 
 <p> <br /></p>
 
-<div style="margin-bottom: 5px;">
+<p><div style="margin-bottom: 5px;">
 <iframe allowfullscreen="" frameborder="0" height="356" marginheight="0"
 marginwidth="0" mozallowfullscreen="" scrolling="no"
 src="http://www.slideshare.net/slideshow/embed_code/17868431"
 style="border-width: 1px 1px 0; border: 1px solid #CCC; margin-bottom:
 5px;" webkitallowfullscreen="" width="427"> </iframe> <br />
-<div style="margin-bottom: 5px;">
-
+<div style="margin-bottom: 5px;"></p>
 </div>
   
   
@@ -389,38 +471,38 @@ style="border-width: 1px 1px 0; border: 1px solid #CCC; margin-bottom:
 
   <div class="entry-content"><p>Let me introduce myself.</p>
 
-<p>My name is Yuriy, I live in Lviv, Ukraine, and I&#8217;m a software developer.</p>
+<p>My name is Yuriy, I live in Lviv, Ukraine, and I&rsquo;m a software developer.</p>
 
-<p>I&#8217;ve tried to pick up a title for me for a while and I didn&#8217;t come with
-anything better than &#8216;software developer&#8217; - I don&#8217;t want to tie myself
-to things like &#8216;coder&#8217;, &#8216;tech lead&#8217;, &#8216;scrum master&#8217; or anything similar
-- still I was in all that shoes in my career.</p>
+<p>I&rsquo;ve tried to pick up a title for me for a while and I didn&rsquo;t come with
+anything better than &lsquo;software developer&rsquo; &ndash; I don&rsquo;t want to tie myself
+to things like &lsquo;coder&rsquo;, &lsquo;tech lead&rsquo;, &lsquo;scrum master&rsquo; or anything similar
+&ndash; still I was in all that shoes in my career.</p>
 
 <p>My first commercial job was a Perl coder in 2004 in small outsourcing
-company in Ternopil, Ukraine. From there I&#8217;ve switched to Java and now
-to Ruby development. Still, that&#8217;s not a thing I&#8217;m really proud about
+company in Ternopil, Ukraine. From there I&rsquo;ve switched to Java and now
+to Ruby development. Still, that&rsquo;s not a thing I&rsquo;m really proud about
 and which I want to share.</p>
 
-<p>I would like to write in this blog about modern tools and languages -
+<p>I would like to write in this blog about modern tools and languages &ndash;
 especially languages, as I consider learning new programming language as
 the most exiting part of a software development. I hope to write about
-Scala, Ruby, Haskell - but not limited to ones. Also I&#8217;m interested
-about bigger things - as long as they are still technical. That said, I
+Scala, Ruby, Haskell &ndash; but not limited to ones. Also I&rsquo;m interested
+about bigger things &ndash; as long as they are still technical. That said, I
 hope to cover software architecture and system architecture in my posts.</p>
 
-<p>I don&#8217;t consider this blog as a place for me to share my personal
-things. I don&#8217;t think people that came here to read about, say, Scala,
-would care how did I spend my weekends - did I go caving or skiing or
+<p>I don&rsquo;t consider this blog as a place for me to share my personal
+things. I don&rsquo;t think people that came here to read about, say, Scala,
+would care how did I spend my weekends &ndash; did I go caving or skiing or
 mountain tracking (still this is a usual way for me to spend a weekend).
-So don&#8217;t be afraid to add it to your RSS reader - no porn, no kitties,
+So don&rsquo;t be afraid to add it to your RSS reader &ndash; no porn, no kitties,
 no photos with my family. Only software development, only hardcore.<br/>
-And the last thing I&#8217;m going to write about in this post is to answer a
-question - why do I want to have this blog in a first place? Answer is
-simple - writing about things helps to organize you minds and knowledge
+And the last thing I&rsquo;m going to write about in this post is to answer a
+question &ndash; why do I want to have this blog in a first place? Answer is
+simple &ndash; writing about things helps to organize you minds and knowledge
 about that things. Of course, knowing that the blog is useful to someone
 would be a great encouragement.</p>
 
-<p>So now lets click Publish - and see what happens next. I hope it will be
+<p>So now lets click Publish &ndash; and see what happens next. I hope it will be
 something exciting :)</p>
 </div>
   
@@ -442,6 +524,10 @@ something exciting :)</p>
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2013/05/10/scala-workshop-1/">Scala Workshop - day 1, parsers</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2013/04/29/scala_workshop_0/">Scala Workshop - day 0</a>
       </li>
     
@@ -455,10 +541,6 @@ something exciting :)</p>
     
       <li class="post">
         <a href="/blog/2013/03/29/presentations/">Presentations</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2013/03/29/hello/">Hello, World!</a>
       </li>
     
   </ul>

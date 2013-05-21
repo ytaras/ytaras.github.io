@@ -4,7 +4,7 @@
   <title><![CDATA[Category: functional programming | Blog about sofware development]]></title>
   <link href="http://ytaras.github.io/blog/categories/functional-programming/atom.xml" rel="self"/>
   <link href="http://ytaras.github.io/"/>
-  <updated>2013-05-01T13:08:37+03:00</updated>
+  <updated>2013-05-21T08:10:14+03:00</updated>
   <id>http://ytaras.github.io/</id>
   <author>
     <name><![CDATA[Yura Taras]]></name>
@@ -14,19 +14,443 @@
 
   
   <entry>
+    <title type="html"><![CDATA[Scala Workshop - day 1, parsers]]></title>
+    <link href="http://ytaras.github.io/blog/2013/05/10/scala-workshop-1/"/>
+    <updated>2013-05-10T14:27:00+03:00</updated>
+    <id>http://ytaras.github.io/blog/2013/05/10/scala-workshop-1</id>
+    <content type="html"><![CDATA[<p>Let&rsquo;s continue on WAAS (workflow-as-a-service). In this post I&rsquo;m going
+to show how to use parsers combinators to parse our workflow
+definitions.</p>
+
+<p>Have a look at sample workflow definition file we&rsquo;re going to parse. It
+contains 2 worflow definitions &ndash; one for issue tracking system and other
+for deals.</p>
+
+<p>```
+workflow issue {
+  start state open</p>
+
+<pre><code>             goes to started;
+</code></pre>
+
+<p>  state started  goes to open, resolved;
+  state resolved goes to closed, open;
+  state closed;
+};</p>
+
+<p>workflow project {
+  start state negotiation</p>
+
+<pre><code>           goes to signed, failed;
+</code></pre>
+
+<p>  state signed goes to failed, done;
+  state done   goes to paid, failed;
+  state paid;
+  state failed;
+};
+```</p>
+
+<p>At the end of this post we&rsquo;re going to have a parser, which transforms
+textual definitions to our internal model, ready for persistense.</p>
+
+<!-- more -->
+
+
+<h2>Parsers in ANTLR</h2>
+
+<p>To target that task, let&rsquo;s start with something more conventional than
+Scala parsers. <a href="http://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_Form">EBNF</a> format is widely used for describing grammar, so
+we&rsquo;re going to start with that:
+<code>
+goes       = 'goes', ws, 'to', ws, { identifier, ',', ws }, identifier;
+state      = [ 'start', ws ], 'state', ws, goes, ws, ';'
+workflow   = 'workflow', ws, identifier, ws, '{', ws, { state, ws },  ws, '}', ws, ';'
+workflows  = { workflow }
+ws         = ? whitespace characters ?
+identifier = letter { letter | number | '_' }
+</code></p>
+
+<p>In order to generate executable parsers, we should define the grammar
+in some DSL specific for a parser framework we choose. Let&rsquo;s define a
+grammar in <a href="http://www.antlr.org/">ANTLR4</a> &ndash; well known parser in Java world:
+<code>
+grammar workflowGrammar;
+file: workflowDefinition* EOF;
+workflowDefinition: 'workflow' ID '{' stateDefinition*?'}' ';';
+stateDefinition: 'start'? 'state' ID goes? ';';
+goes: 'goes' 'to' (ID',')* ID;
+ID: [a-zA-Z]([a-z0-9_])* ;
+WS: [ \t\r\n]+ -&gt; skip;
+</code>
+Based on that grammar we are ready to generate lexer and parser. For
+ones who are not familiar with those terms &ndash; lexer is a converter from
+input stream to stream of tokens and parser is converter from a stream
+of tokens to a parse tree. Anyway, this distinction is not critical in
+our case, so I will refer to lexer+parser combination as simply parser.</p>
+
+<p>I leave ANTLR parser generation and execution as an exercise for a reader.
+Still, here&rsquo;s sample parsed tree you could view using <a href="http://tunnelvisionlabs.com/products/demo/antlrworks">ANTLRWorks</a>:
+```
+(file</p>
+
+<pre><code>(workflowDefinition workflow issue {
+    (stateDefinition start state open (goes goes to started) ;)
+    (stateDefinition state started (goes goes to open , resolved) ;)
+    (stateDefinition state resolved (goes goes to closed , open) ;)
+    (stateDefinition state closed ;)
+ } ;)
+(workflowDefinition workflow project {
+    (stateDefinition start state negotiation (goes goes to signed , failed) ;)
+    (stateDefinition state signed (goes goes to failed , done) ;)
+    (stateDefinition state done (goes goes to paid , failed) ;)
+    (stateDefinition state paid ;)
+    (stateDefinition state failed ;)
+ } ;)
+</code></pre>
+
+<p><EOF>)
+```
+You can easily see that this tree is much easier to convert to our model
+than a flat string we had on our input.</p>
+
+<p>ANTLR is a great tool and is used in most cases when we need parsing
+capabilities in Java world. Anyway, there&rsquo;s a thing you should notice
+about grammar definition &ndash; it is so called &lsquo;external DSL&rsquo; &ndash; it means
+that this is a separate language, which needs it&rsquo;s own parser and
+compiler. If instead we would try to define grammar using Java directly,
+it would be a huge pain to write, read and support.</p>
+
+<h2>Parser combinators framework</h2>
+
+<p>Scala goes with it&rsquo;s own parser framework, very much
+inspired by Haskell&rsquo;s <a href="http://legacy.cs.uu.nl/daan/parsec.html">Parsec</a> framework and is a part of standart
+Scala library. In a contrast, Scala&rsquo;s parsers are written using plain
+Scala using some syntatical features and tricks of a language. This
+approach is called <a href="http://martinfowler.com/bliki/DomainSpecificLanguage.html">Internal DSL</a></p>
+
+<p>Idea behind parser combinators is very simple: every parser is defined
+as a function from its input to parse result. Parser result contains
+output value or failure message and rest of input:
+<code>scala
+def parse(input: Input): Result = ???
+sealed trait Result
+case class Success(result: Output, next: Input) extends Result
+case class Failure(failure: String, next: Input) extends Result
+</code>
+A fact that not-consumed part of input is returned back turns out to be
+ a very usefull feature, because it enables easy parser
+composition. BTW, composition is kind of fetish in functional
+programming community &ndash; ability to define small primitives and compose
+larger thing of it is recognized as design success. With that in mind,
+parser combinators are definitelly a success &ndash; all parser tutorials
+start with creating a parser which parses a single char and than create
+much more expressive parsers on top of that primitive. I won&rsquo;t do that
+in this post, instead I will act as a parser library user. Anyway, I
+strongly recommend reading great <a href="http://henkelmann.eu/2011/01/13/an_introduction_to_scala_parser_combinators">series of posts on that topic</a>. If
+you don&rsquo;t afraid Haskell (and you shouldn&rsquo;t!), there are two chapters on
+our topic in &lsquo;Real World Haskell&rsquo; book &ndash;
+<a href="http://book.realworldhaskell.org/read/code-case-study-parsing-a-binary-data-format.html">Code case study: parsing a binary data format</a> and
+<a href="http://book.realworldhaskell.org/read/using-parsec.html">The Parsec parsing library</a>. This is a really interesting stuff to
+read &ndash; and I give up explaining parser combinators to that guys.</p>
+
+<p>So let&rsquo;s create a file <code>src/main/scala/parser/parser.scala</code> and add
+following content to it:
+```scala
+package parsers</p>
+
+<p>import scala.util.parsing.combinator._</p>
+
+<p>object SampleParser extends JavaTokenParsers {
+  def number = floatingPointNumber
+  def twoNumbers = number ~ number
+}
+```</p>
+
+<p>Let&rsquo;s start from the beginning. We import all required imports and then
+extend our custom object from <code>JavaTokenParsers</code> class. This class is an
+extension of default parsers class, <code>scala.util.parsing.combinator.Parsers</code>.
+What&rsquo;s useful in that class in our case is that it does whitespaces handling
+and provides few useful parsers, like <code>ident</code> or <code>floatingPointNumber</code> we&rsquo;re using in this example.</p>
+
+<p>Launch console with <code>sbt console</code> and have a look at types:
+```
+scala> import parsers.<em>
+import parsers.</em></p>
+
+<p>scala> import SampleParser.<em>
+import SampleParser.</em></p>
+
+<p>scala> :type number
+parsers.SampleParser.Parser[String]</p>
+
+<p>scala> :type twoNumbers
+parsers.SampleParser.Parser[parsers.SampleParser.~[String,String]]
+<code>``
+Ok, now it should be easier to tell what's going on. Each parser has a type -
+what is returned on successful parse. For example,</code>number<code>parser
+returns (somewhat surprisingly) String. But what's interesting is a second parser,
+which is constructed as a combination of 2 parsers and return</code>~[String, String]<code>- yet
+another type to present data tuple. We can use</code>twoNumbers` parser on it&rsquo;s own or
+construct more parsers on top of it &ndash; and this is what composition is about.</p>
+
+<p>After defining parsers we can use them. There are 2 methods &ndash; <code>parse</code> and <code>parseAll</code>.
+Difference is that second fails if parser didn&rsquo;t consume all the input. Here are some
+examples of using that:
+```scala
+object ParserExample extends App {
+  import SampleParser._</p>
+
+<p>  println(&ldquo;Parsing whole string &lsquo;123&rsquo; as a number&rdquo;)
+  println(parseAll(number, &ldquo;123&rdquo;).get)
+  println(&ldquo;Parsing whole string &lsquo;123 321&rsquo; as a number&rdquo;)
+  parseAll(number, &ldquo;123 123&rdquo;) match {</p>
+
+<pre><code>case x: NoSuccess =&gt; println(x.msg)
+</code></pre>
+
+<p>  }
+  println(&ldquo;Parsing string &lsquo;123 321&rsquo; as a number&rdquo;)
+  println(parse(number, &ldquo;123&rdquo;).get)
+  println(&ldquo;Parsing whole string &lsquo;123 321&rsquo; as two numbers&rdquo;)
+  println(parseAll(twoNumbers, &ldquo;123 321&rdquo;).get)
+}
+```</p>
+
+<p>Go ahead and run this program &ndash; there are 1 failing and 3
+successful examples.</p>
+
+<p>So far so good, but how do we convert parser output to types we need? That&rsquo;s what <code>^^</code>
+method is for. Let&rsquo;s make our first parser to convert result to float and second
+one to multiply floats it parses:
+```scala
+  def number: Parser[Float] = floatingPointNumber ^^ { _.toFloat }
+  def twoNumbers: Parser[Float] = number ~ number ^^ { x =></p>
+
+<pre><code>x._1 * x._2
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>As shown here, <code>^^</code> operator takes parser on a left and a converter function
+on a right, and a result is a parser which returns converted result.</p>
+
+<p>If you are afraid of pseudo-graphic operators, don&rsquo;t be &ndash; there&rsquo;s more to come.</p>
+
+<h3>Creating a model</h3>
+
+<p>Before we can parse, I advise to create a model for our workflows, so we have a stable ground
+to work on.</p>
+
+<p>```scala model/model.scala
+package model</p>
+
+<p>case class Step(name: String, goesTo: List[String], start: Boolean)
+case class Workflow(name: String, steps: List[Step])
+```</p>
+
+<p>This is just enough to get started.</p>
+
+<h3>Converting grammar</h3>
+
+<p>Let&rsquo;s start with creating simple non-converting parser:</p>
+
+<p><code>scala parsers/parser.scala
+object WorkflowParsers extends JavaTokenParsers {
+  def workflows = workflow.*
+  def workflow = ("workflow" ~&gt; ident &lt;~ "{") ~ step.* &lt;~ ("}" ~ ";")
+  def step = ("start".? &lt;~ "step") ~ ident ~ goesTo.? &lt;~ ";"
+  def goesTo = ("goes" ~ "to") ~&gt; (ident &lt;~ ",").* ~ ident
+}
+</code></p>
+
+<p>I promised there will be more pseudo-graphics coming. Let&rsquo;s me explain few new things:</p>
+
+<ul>
+<li><code>parser.*</code> means zero-or-many combinator, so created parser will be executed zero or many times. In
+example, workflows file contains zero or more workflow definitions</li>
+<li>strings are implicitly converted to parsers, so <code>"workflow"</code> is actually a parser which accepts &lsquo;workflow&rsquo; string</li>
+<li><code>ident</code> is a parser, which parses a Java identifier</li>
+<li><code>parser1 ~&gt; parser2</code> means that both parsers are executed, but only result of right one is stored,
+so <code>"workflow" ~&gt; ident</code> ensures there&rsquo;s a <code>workflow</code> word before an identifier, but result will
+store only identifier value. Same for <code>&lt;~</code>, which drops the right value and stores left</li>
+<li><code>parser.?</code> is optional combinator, so <code>goesTo.?</code> means there can be or not be <code>goes to</code> part
+in step definition</li>
+</ul>
+
+
+<p>With that in mind, you probably should be able to read through parser definition and see
+it&rsquo;s the same we expressed in ANTLR4 grammar. Let&rsquo;s load this into console and have a look at types generated for us.</p>
+
+<p>```
+scala> :type goesTo
+parsers.WorkflowParsers.Parser[parsers.WorkflowParsers.~[List[String],String]]</p>
+
+<p>scala> :type workflows
+parsers.WorkflowParsers.Parser[List[parsers.WorkflowParsers.~[String,List[parsers.WorkflowParsers.~[parsers.WorkflowParsers.~[Option[String],String],Option[parsers.WorkflowParsers.~[List[String],String]]]]]]]
+```</p>
+
+<p>Wow, if for simple parser <code>goesTo</code> it&rsquo;s theoretically readable, for top-level <code>workflows</code> parser it quickly gets out of control.
+We should use our converter functions to get return result to something more usable. I&rsquo;m going to start with <code>goesTo</code>. First, I&rsquo;ll
+explicitly set a type to more desired one:</p>
+
+<p><code>scala
+def goesTo: Parser[List[String]] =  ("goes" ~ "to") ~&gt; (ident &lt;~ ",").* ~ ident
+</code></p>
+
+<p>If we try to compile that, we will get a compile error. I want to fix it, but I don&rsquo;t want to
+write working implementation right away, as I want to use TDD here. So I came for help to <code>???</code>
+operator I described earlier:
+```scala
+  def goesTo: Parser[List[String]] = (&ldquo;goes&rdquo; ~ &ldquo;to&rdquo;) ~> (ident &lt;~ &ldquo;,&rdquo;).* ~ ident ^^ {</p>
+
+<pre><code> _ =&gt; ???
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>What I&rsquo;m writing here &ndash; I want to convert parse result to <code>List[String]</code>, but I&rsquo;m not sure
+about implementation yet, so compile this but throw an error in runtime if someone calls this.</p>
+
+<p>It&rsquo;s time to write some tests:</p>
+
+<p>```scala parser/WorkflowParserSpec.scala
+package parsers</p>
+
+<p>import org.specs2.mutable.<em>
+import org.specs2.ScalaCheck
+import WorkflowParsers.</em></p>
+
+<p>class WorkflowParserSpec extends Specification {
+  &ldquo;Parser&rdquo; should {</p>
+
+<pre><code>"parse goes to" in { 
+   parseAll(goesTo, "goes to one, two, three").get must_== 
+     List("one", "two", "three")
+}
+</code></pre>
+
+<p>  }
+}
+```</p>
+
+<p>Note <code>.get</code> method, which is a sneak around type system to give us ability
+to take parse result without working on failure conditions. If parse fails, <code>.get</code>
+throws exception in runtime, which is good enough for testing. Anyway, in
+production code we should use some more consistent approach and I&rsquo;ll go to that in next posts.</p>
+
+<p>If we run a test, we&rsquo;ll receive <code>implementation is missing</code> error, which is exactly what we expected. Let&rsquo;s
+now flesh out an implementation:</p>
+
+<p>```scala parser/WorkflowParserSpec.scala
+  def goesTo: Parser[List[String]] = (&ldquo;goes&rdquo; ~ &ldquo;to&rdquo;) ~> (ident &lt;~ &ldquo;,&rdquo;).* ~ ident ^^ {</p>
+
+<pre><code> case list ~ last =&gt; list :+ last
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>We saw our non-converting parser returns <code>~[List[String], List]</code> class and it is implemented in a way
+it makes possible pattern-matching on that. It makes possible a trick <code>case list ~ last</code>, where
+<code>list</code> and <code>last</code> are deconstructed values of parser result. What we need to do is to append
+last result to a list &ndash; and it&rsquo;s done with <code>:+</code> list operator. Run a test and it succeeds.</p>
+
+<p>If we load a console once more, we&rsquo;ll notice that not only type of <code>goesTo</code> parser changes, but
+of all the other parsers make on top of that:</p>
+
+<p>```
+scala> :type goesTo
+parsers.WorkflowParsers.Parser[List[String]]</p>
+
+<p>scala> :type workflows
+parsers.WorkflowParsers.Parser[List[parsers.WorkflowParsers.~[String,List[parsers.WorkflowParsers.~[parsers.WorkflowParsers.~[Option[String],String],Option[List[String]]]]]]]
+```</p>
+
+<h3>Doing other parser</h3>
+
+<p>Let&rsquo;s convert other parsers.</p>
+
+<p>```scala parser/parser.scala
+  def workflows: Parser[List[Workflow]] = workflow.<em>
+  def workflow: Parser[Workflow] = (&ldquo;workflow&rdquo; ~> ident &lt;~ &ldquo;{&rdquo;) ~ step.</em> &lt;~ (&ldquo;}&rdquo; ~ &ldquo;;&rdquo;) ^^ {</p>
+
+<pre><code>_ =&gt; ???
+</code></pre>
+
+<p>  }
+  def step: Parser[Step] = (&ldquo;start&rdquo;.? &lt;~ &ldquo;step&rdquo;) ~ ident ~ goesTo.? &lt;~ &ldquo;;&rdquo; ^^ {</p>
+
+<pre><code> _ =&gt; ???
+</code></pre>
+
+<p>  }
+```</p>
+
+<p>And now let&rsquo;s have some tests:</p>
+
+<p>```scala parser/WorkflowParserSpec.scala</p>
+
+<pre><code>"parse start step" in {
+  parseAll(WorkflowParsers.step, "start step name goes to one, two, three;").get must_==
+     Step("name", List("one", "two", "three"), true)
+}
+"parse empty step" in {
+  parseAll(WorkflowParsers.step, "step name;").get must_==
+     Step("name", List(), false)
+}
+"parse empty workflow" in {
+  parseAll(workflow, """workflow wf {};""").get must_==
+     Workflow("wf", List())
+}
+"parse not-empty workflow" in {
+  parseAll(workflow, """workflow wf {
+                          start step one goes to two;
+                          step two;
+                        };""").get must_==
+     Workflow("wf", List(Step("one", List("two"), true), Step("two", List(), false)))
+}
+</code></pre>
+
+<p>```</p>
+
+<p>I know there&rsquo;s a lot duplications and I&rsquo;m going to do some refactoring in my next post.</p>
+
+<p>I encourage you to go ahead and try to fix those tests by yourself. I have created a tagged revision
+so it should be easier for you to setup environment:</p>
+
+<p><code>sh
+git clone https://github.com/ytaras/scala_waas.git
+cd scala_waas
+git checkout day1-homework
+</code></p>
+
+<p>I also submitted a solution for the impatient &ndash; have a look at tag <code>day1-homework-solved</code>,
+anyway you&rsquo;ll learn better if you try to do the homework yourself.</p>
+
+<h3>Conclusion</h3>
+
+<p>This was a long post. Hopefully, it was useful, as I&rsquo;m going to continue hacking our new and shiny WAAS service.
+I&rsquo;m looking forward for receiving comments and questions from you &ndash; and will meet in the next post.</p>
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[Scala Workshop - day 0]]></title>
     <link href="http://ytaras.github.io/blog/2013/04/29/scala_workshop_0/"/>
     <updated>2013-04-29T00:00:00+03:00</updated>
     <id>http://ytaras.github.io/blog/2013/04/29/scala_workshop_0</id>
-    <content type="html"><![CDATA[<p>I love Scala. It's combines goodies from JVM and Java infrastructure,
-Haskell and dynamic languages like Ruby - and it almost doesn't inherit
+    <content type="html"><![CDATA[<p>I love Scala. It&rsquo;s combines goodies from JVM and Java infrastructure,
+Haskell and dynamic languages like Ruby &ndash; and it almost doesn&rsquo;t inherit
 Java programming language deceases.</p>
 
 <p>Anyway, I always wanted to create some end-to-end project using Scala
-technologies - but never did as  I'm working with completely different
+technologies &ndash; but never did as  I&rsquo;m working with completely different
 technology set. So, I decided to come up with some fake business idea
-and implement it. I'm going to use interesting libraries like Akka and
-Scalaz in that task, God help me! I'm going to describe things step by
+and implement it. I&rsquo;m going to use interesting libraries like Akka and
+Scalaz in that task, God help me! I&rsquo;m going to describe things step by
 step so people with no experience in Scala can pick it up and proceed
 with me.</p>
 
@@ -39,43 +463,43 @@ with me.</p>
 <li>Functional dependency injection via implicit parameters</li>
 <li>Properties checking with ScalaCheck</li>
 <li>Concurrency with Akka actors</li>
-<li>RIA with Play2 or Lift or JS/Scalatra - yet to decide</li>
+<li>RIA with Play2 or Lift or JS/Scalatra &ndash; yet to decide</li>
 </ul>
 
 
-<p>I'm also going to focus more on functional side of Scala as I see it.</p>
+<p>I&rsquo;m also going to focus more on functional side of Scala as I see it.</p>
 
 <!-- more -->
 
 
 <h2>Goal</h2>
 
-<p>I've come with following fake 'business idea': we'll be building a
+<p>I&rsquo;ve come with following fake &lsquo;business idea&rsquo;: we&rsquo;ll be building a
 service, which provides workflow capabilities. You should be able to
 submit workflow definitions in textual format and after that create some
 objects, assign them to workflows and traverse them from step to step. I
 foresee a lot of users working with that service, so I want to do that
-as scalable as I can. I will call that stuff WAAS -
-Workflow-as-a-Service, just because W-buzzword isn't taken yet.</p>
+as scalable as I can. I will call that stuff WAAS &ndash;
+Workflow-as-a-Service, just because W-buzzword isn&rsquo;t taken yet.</p>
 
-<p>You see what I'm doing here - I just came up with a task which requires
+<p>You see what I&rsquo;m doing here &ndash; I just came up with a task which requires
 Web, parsing, scalability and persistence. Hopefully it will help me and
 you to put different pieces of Scala infrastructure together.</p>
 
 <h2>What you should know</h2>
 
-<p>You should be familiar with Scala syntax - at least not scared with it.
-I'm not going to explain, what a <code>trait</code>, <code>val</code> or <code>def</code> keyword means.
-If you want to read some introductory stuff - I can recommend  <a href="http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees">Scala for Java refugees</a> or <a href="http://www.naildrivin5.com/scalatour">Another tour of Scala</a>.</p>
+<p>You should be familiar with Scala syntax &ndash; at least not scared with it.
+I&rsquo;m not going to explain, what a <code>trait</code>, <code>val</code> or <code>def</code> keyword means.
+If you want to read some introductory stuff &ndash; I can recommend  <a href="http://www.codecommit.com/blog/scala/roundup-scala-for-java-refugees">Scala for Java refugees</a> or <a href="http://www.naildrivin5.com/scalatour">Another tour of Scala</a>.</p>
 
 <h2>Starting</h2>
 
 <p>If you are familiar with Scala infrastructure, you may skip the rest of
-this post - I will talk a bit about SBT, Specs2 and ScalaCheck here.</p>
+this post &ndash; I will talk a bit about SBT, Specs2 and ScalaCheck here.</p>
 
 <p>So, de-facto standard in building Scala project is <a href="http://www.scala-sbt.org/">Simple Build Tool</a>.
 Go ahead and install it using site instructions. Also I
-recommend to install JDK 7 - OpenJDK or Oracle. Once you've
+recommend to install JDK 7 &ndash; OpenJDK or Oracle. Once you&rsquo;ve
 done, you should be able to launch sbt:</p>
 
 <p><code>
@@ -88,15 +512,15 @@ If you want to start sbt anyway, run:
   /home/ytaras/bin/sbt -sbt-create
 </code></p>
 
-<p>Nice! It says we don't have a project definition here, so we should go
+<p>Nice! It says we don&rsquo;t have a project definition here, so we should go
 ahead and create one:</p>
 
 <p>```
 $ mkdir project
 $ cat > project.sbt
-scalaVersion := "2.10.1"</p>
+scalaVersion := &ldquo;2.10.1&rdquo;</p>
 
-<p>resolvers ++= Seq("snapshots" at "http://oss.sonatype.org/content/repositories/snapshots",</p>
+<p>resolvers ++= Seq(&ldquo;snapshots&rdquo; at &ldquo;<a href="http://oss.sonatype.org/content/repositories/snapshots">http://oss.sonatype.org/content/repositories/snapshots</a>&rdquo;,</p>
 
 <pre><code>              "releases"  at "http://oss.sonatype.org/content/repositories/releases")
 </code></pre>
@@ -106,7 +530,7 @@ scalaVersion := "2.10.1"</p>
 
 <p>Now you should be able to run <code>sbt console</code> and get Scala console
 running. It can take some time as it downloads Scala 2.10.1 binaries.
-So far we didn't do anything interesting - we just specified Scala
+So far we didn&rsquo;t do anything interesting &ndash; we just specified Scala
 version to use and added few OSS repositories to be able to access most
 Scala libs in future. Now lets try some TDD cycle.</p>
 
@@ -127,26 +551,26 @@ RSpec experience but still has nice integration with some other libs.</p>
 ```</p>
 
 <p>If you are familiar with Maven or Apache Ivy, you can get whats going on
-here - you're specifying a group, lib and version and put that into
-'test' configuration. Notice that double % is not a typo - it's a SBT
-hack to overcome Scala's binary incompatibility between versions. Long
+here &ndash; you&rsquo;re specifying a group, lib and version and put that into
+&lsquo;test&rsquo; configuration. Notice that double % is not a typo &ndash; it&rsquo;s a SBT
+hack to overcome Scala&rsquo;s binary incompatibility between versions. Long
 story short, every Scala lib tends to have compiled versions for every
 recent Scala version and %% operator picks one based on the current
 Scala you are running on.</p>
 
 <p>If you have SBT console (that one, which is opened with <code>sbt</code> command,
 not a Scala console, which is issued by <code>sbt console</code>), you can hit
-<code>reload</code> there to pick up new project definition. If not - you can just
+<code>reload</code> there to pick up new project definition. If not &ndash; you can just
 open new SBT shell and will be done for you. Now try typing <code>test</code> into
-SBT console - it will download binaries if needed, try to compile
+SBT console &ndash; it will download binaries if needed, try to compile
 non-existing product and test files and will gracefully shut down with
 message about no found tests. Nice! This is your first green build. It
 is said, that ideal code is no code, so now you have ideal project done
 :)</p>
 
-<p>Now let's start continuous testing - run <code>~ test</code> in SBT shell. It will
+<p>Now let&rsquo;s start continuous testing &ndash; run <code>~ test</code> in SBT shell. It will
 monitor your source files and relaunch test suite once you saved your
-code. Let's add first test file <code>src/test/scala/CalculatorSpec.scala</code></p>
+code. Let&rsquo;s add first test file <code>src/test/scala/CalculatorSpec.scala</code></p>
 
 <p>```scala src/test/scala/CalculatorSpec.scala
 import org.specs2.mutable._</p>
@@ -155,12 +579,12 @@ import org.specs2.mutable._</p>
 }
 ```</p>
 
-<p>Nothing special is going on here - adding necessary imports and
-extending specific class. Let's add a first specification. Scala
+<p>Nothing special is going on here &ndash; adding necessary imports and
+extending specific class. Let&rsquo;s add a first specification. Scala
 language features made possible fluent specs declarations similar to RSpec:</p>
 
 <p>```scala src/test/scala/CalculatorSpec.scala
-  "Native scala operations" should {</p>
+  &ldquo;Native scala operations&rdquo; should {</p>
 
 <pre><code>"add" in { 2 + 2 must_== 4 }
 "subtract" in { 5 - 4 must_== 1 }
@@ -173,21 +597,21 @@ language features made possible fluent specs declarations similar to RSpec:</p>
 
 <p>When you save file you should notice pretty-printed specs with success
 message. As a side-note, what we done here is a useful TDD technique
-which I call 'wrapping 3rdparty object' (if you know widely adopted
+which I call &lsquo;wrapping 3rdparty object&rsquo; (if you know widely adopted
 name, please let me know). Idea here is that we write unit tests for
-3rd-party components, which we don't write and control, to ensure our
-expectation matches it's real behavior. I don't say you should test all
+3rd-party components, which we don&rsquo;t write and control, to ensure our
+expectation matches it&rsquo;s real behavior. I don&rsquo;t say you should test all
 standard lib as I do here, but it may help you if you
-unsure what some specific method does in 3rd party library - write down
+unsure what some specific method does in 3rd party library &ndash; write down
 a test, make it pass and submit it to your SCM. If version upgrade will
 break your expectations (and possibly your code) you will be notified
 immediately.</p>
 
-<p>But enough theory. Let's create a calculator - it's a common showcase
+<p>But enough theory. Let&rsquo;s create a calculator &ndash; it&rsquo;s a common showcase
 for TDD.</p>
 
 <p>```scala src/test/scala/CalculatorSpec.scala
-  "Calculator" should {</p>
+  &ldquo;Calculator&rdquo; should {</p>
 
 <pre><code>"add" in { Calculator.add(3, 3) must_== 6 }
 "subtract" in { Calculator.subtract(10, 3) must_== 7 }
@@ -199,7 +623,7 @@ for TDD.</p>
 ```</p>
 
 <p>That ugly API will be our calculator. If we have a glance at our SBT
-shell we'll notice compilation fails. So let's add calculator definition
+shell we&rsquo;ll notice compilation fails. So let&rsquo;s add calculator definition
 into <code>src/main/scala/Calculator.scala</code>:</p>
 
 <p><code>scala src/main/scala/Calculator.scala
@@ -211,20 +635,20 @@ object Calculator {
 }
 </code></p>
 
-<p>I really place all that ??? in my code, that's a Scala construct. Long
-story short, it's a placeholder for your implementation which has
+<p>I really place all that ??? in my code, that&rsquo;s a Scala construct. Long
+story short, it&rsquo;s a placeholder for your implementation which has
 whatever type you specify but throws exception in runtime<br/>
-Scala has very powerful type systems - comparable to Haskell one's - so
+Scala has very powerful type systems &ndash; comparable to Haskell one&rsquo;s &ndash; so
 usually you make use of it and make sure a lot of errors are caught by
 compiler. Some techniques exists for that and I will mention them in
 future posts. Anyway, with TDD we want to do one step at a time, so ???
 placeholder allows to break Red-Green-Refactor cycle into
-Red-Compiles-Green-Refactor. Using that in adding 2 integers doesn't
-make too much sense, but if we're playing with more complex types
+Red-Compiles-Green-Refactor. Using that in adding 2 integers doesn&rsquo;t
+make too much sense, but if we&rsquo;re playing with more complex types
 (especially monadic ones) this technique becomes useful.<br/>
-If you have a look at SBT console, you'll notice we moved to Compiles
-stage - tests are executed, but exception is thrown. Nice. Let's use
-'obvious implementation' and add, well, obvious implementation for all 4
+If you have a look at SBT console, you&rsquo;ll notice we moved to Compiles
+stage &ndash; tests are executed, but exception is thrown. Nice. Let&rsquo;s use
+&lsquo;obvious implementation&rsquo; and add, well, obvious implementation for all 4
 methods:</p>
 
 <p><code>scala src/main/scala/Calculator.scala
@@ -237,12 +661,12 @@ object Calculator {
 </code></p>
 
 <p>I no longer need explicit return types as they are easily inferred out
-by a compiler. And... Tadam! We're Green - and looks like there's no
+by a compiler. And&hellip; Tadam! We&rsquo;re Green &ndash; and looks like there&rsquo;s no
 need for refactoring.</p>
 
 <p>Anyway, currently are testing only against specific values. Is there a
-way to improve a test coverage, add more sample values? That's what's
-<a href="https://github.com/rickynils/scalacheck">ScalaCheck</a> framework is for. Let's try to learn it by example.<br/>
+way to improve a test coverage, add more sample values? That&rsquo;s what&rsquo;s
+<a href="https://github.com/rickynils/scalacheck">ScalaCheck</a> framework is for. Let&rsquo;s try to learn it by example.<br/>
 First, add it to your dependencies:</p>
 
 <p>```scala project.sbt
@@ -264,12 +688,12 @@ import org.specs2.ScalaCheck</p>
 <p>class CalculatorSpec extends Specification with ScalaCheck {
 ```</p>
 
-<p>Good. Let's write our first property. What about following -
+<p>Good. Let&rsquo;s write our first property. What about following &ndash;
 Calculator.sum should return sum of two numbers it receives as
 arguments:</p>
 
 <p>```scala src/test/scala/CalculatorSpec.scala
-  "Calculator properties" should {</p>
+  &ldquo;Calculator properties&rdquo; should {</p>
 
 <pre><code>"add" in prop { (x: Int, y: Int) =&gt;
   Calculator.add(x, y) must_== x + y
@@ -279,15 +703,15 @@ arguments:</p>
 <p>  }
 ```</p>
 
-<p>If we save a file now, we'll notice that result run has 108 expectations
-- this is because ScalaCheck generated 100 pairs of ints and verified if
-  satisfies specified property. Thanks to implicit's black magic we can
+<p>If we save a file now, we&rsquo;ll notice that result run has 108 expectations
+&ndash; this is because ScalaCheck generated 100 pairs of ints and verified if
+  satisfies specified property. Thanks to implicit&rsquo;s black magic we can
 use either boolean comparisons <code>x == y</code> or Specs2 matchers <code>x must_== y</code>
-whichever suits better. Notice - we still haven't discovered integer
-overflow here, just because we didn't write correct assertions, for
+whichever suits better. Notice &ndash; we still haven&rsquo;t discovered integer
+overflow here, just because we didn&rsquo;t write correct assertions, for
 example that sum of positives is positive; but framework silently
-generated those edge case values for us. But, as we're
-just learning, let's go to something more obvious - for example,
+generated those edge case values for us. But, as we&rsquo;re
+just learning, let&rsquo;s go to something more obvious &ndash; for example,
 division:</p>
 
 <p>```scala src/test/scala/CalculatorSpec.scala</p>
@@ -300,9 +724,9 @@ division:</p>
 <p>```</p>
 
 <p>If we try to run this, it will fail because of zero-division. There are
-different ways of handling this. Let's imagine that we say 'we never
-pass 0 as second argument to division, so we don't care what happens
-there'. It can be easily done with ScalaCheck:</p>
+different ways of handling this. Let&rsquo;s imagine that we say &lsquo;we never
+pass 0 as second argument to division, so we don&rsquo;t care what happens
+there&rsquo;. It can be easily done with ScalaCheck:</p>
 
 <p>```scala src/test/scala/CalculatorSpec.scala</p>
 
@@ -313,9 +737,9 @@ there'. It can be easily done with ScalaCheck:</p>
 
 <p>```</p>
 
-<p>If you are scared by lot of ASCII symbols and extra parenthesis - I
+<p>If you are scared by lot of ASCII symbols and extra parenthesis &ndash; I
 encourage you to read ScalaCheck user guide, which is a really nice
-description how to write properties. If not - just believe me that this
+description how to write properties. If not &ndash; just believe me that this
 property can be read as <em>for any pair of integer such that second
 integer is not zero, following property is true</em></p>
 
@@ -334,14 +758,13 @@ files. Stay tuned!</p>
     <link href="http://ytaras.github.io/blog/2013/04/05/slides/"/>
     <updated>2013-04-05T00:00:00+03:00</updated>
     <id>http://ytaras.github.io/blog/2013/04/05/slides</id>
-    <content type="html"><![CDATA[<p>Here are my slides from presentation I gave to local JUG - introduction
+    <content type="html"><![CDATA[<p>Here are my slides from presentation I gave to local JUG &ndash; introduction
 to Scala</p>
 
-<iframe
+<p><iframe
 src="https://docs.google.com/presentation/d/1_j0lnzS3Ez4gnrYM3T9kpMeTbeAMHrgxuKSy5E8c1kE/embed?start=false&loop=false&delayms=3000"
 frameborder="0" width="480" height="389" allowfullscreen="true"
-mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
-
+mozallowfullscreen="true" webkitallowfullscreen="true"></iframe></p>
 ]]></content>
   </entry>
   
@@ -353,18 +776,18 @@ mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
     <content type="html"><![CDATA[<h2>Intro</h2>
 
 <p>Every functional programmer should write an article about what FP is at
-all and I'm not an exception. Next step should be another monad tutorial
-- and it's still on it's way.</p>
+all and I&rsquo;m not an exception. Next step should be another monad tutorial
+&ndash; and it&rsquo;s still on it&rsquo;s way.</p>
 
 <h2>Introduction to functional programming</h2>
 
-<p>So, what is functional programming at all? Actually, there's a lot of
-mess about that - functional programming, functional language,
+<p>So, what is functional programming at all? Actually, there&rsquo;s a lot of
+mess about that &ndash; functional programming, functional language,
 functional features are different things, even if these terms are
 sometimes confused one with another. For example, I even heard that
-JavaScript is a functional language as it's allows passing functions as
+JavaScript is a functional language as it&rsquo;s allows passing functions as
 parameters:
-```javascript example.js http://en.wikipedia.org/wiki/Higher-order_function Wikipedia
+```javascript example.js <a href="http://en.wikipedia.org/wiki/Higher-order_function">http://en.wikipedia.org/wiki/Higher-order_function</a> Wikipedia
 function ArrayForEach(array, func) {
   for (var i = 0; i &lt; array.length; i++) {</p>
 
@@ -383,14 +806,14 @@ function ArrayForEach(array, func) {
 <p>ArrayForEach([1,2,3,4,5], log);
 ```</p>
 
-<p>So, let's put a couple of definition:</p>
+<p>So, let&rsquo;s put a couple of definition:</p>
 
 <ul>
 <li>Functional language is a programming language which enables,
 encourages or even enforces functional programming.</li>
 <li>Functional features are features of a programming language or a
 library, which makes functional programming easier</li>
-<li>Functional programming is... well, let's talk about that below</li>
+<li>Functional programming is&hellip; well, let&rsquo;s talk about that below</li>
 </ul>
 
 
@@ -399,12 +822,12 @@ functional programming as a paradigm easier; and we can use those
 definitions to determine if some programming language is a functional
 language or not. Whew, enough of F-word :)</p>
 
-<p>But we have one more definition to fill up - functional programming or
+<p>But we have one more definition to fill up &ndash; functional programming or
 functional paradigm (FP). This is done by contrast usually and I will
 follow that path, but with one small deviation. Usually FP is being
 compared to imperative programming whatever it means. Also is being said
-that FP and OOP are orthogonal and don't deny each other. I'm going to
-argue with that. So, before going to FP lang, let's see what we have in
+that FP and OOP are orthogonal and don&rsquo;t deny each other. I&rsquo;m going to
+argue with that. So, before going to FP lang, let&rsquo;s see what we have in
 OOP.</p>
 
 <!-- more -->
@@ -412,33 +835,33 @@ OOP.</p>
 
 <h2>OOP reprise</h2>
 
-<p>Here's a definition given by Alan Key:</p>
+<p>Here&rsquo;s a definition given by Alan Key:</p>
 
-<p><blockquote><p>1. Everything is an object.<br/>2. Objects communicate by sending and receiving messages (in terms of objects).<br/>3. Objects have their own memory (in terms of objects).<br/>4. Every object is an instance of a class (which must be an object).<br/>5. The class holds the shared behavior for its instances (in the form of objects in a program list)</p><footer><strong>Alan Key</strong> <cite><a href='http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented'>c2.com/cgi/&hellip;</a></cite></footer></blockquote></p>
+<p><blockquote><p>1. Everything is an object.<br/>2. Objects communicate by sending and receiving messages (in terms of objects).<br/>3. Objects have their own memory (in terms of objects).<br/>4. Every object is an instance of a class (which must be an object).<br/>5. The class holds the shared behavior for its instances (in the form of objects in a program list)</p><footer><strong>Alan Key <a href="http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented">http://c2.com/cgi/wiki?AlanKaysDefinitionOfObjectOriented</a></strong></footer></blockquote></p>
 
-<p>What's interesting here is #2 and #3. Objects communicate by sending and
+<p>What&rsquo;s interesting here is #2 and #3. Objects communicate by sending and
 receiving objects, for example:
 <code>ruby
   result = person.send :full_name
 </code></p>
 
-<p>That's valid Ruby code, which sends a message <code>full_name</code> to object
-<code>user</code> and writes response to <code>result</code> variable. Of course, there's a
+<p>That&rsquo;s valid Ruby code, which sends a message <code>full_name</code> to object
+<code>user</code> and writes response to <code>result</code> variable. Of course, there&rsquo;s a
 shorter version, which is in fact a syntactic sugar:</p>
 
 <p><code>ruby
   result = person.full_name
 </code></p>
 
-<p>It doesn't matter if we're talking about static or dynamic languages,
-Java, C#, Ruby, Smalltalk or Python - every method call can be presented
+<p>It doesn&rsquo;t matter if we&rsquo;re talking about static or dynamic languages,
+Java, C#, Ruby, Smalltalk or Python &ndash; every method call can be presented
 as sending a message. We can see simplest basic blocks of OOP are
 objects and messages aka methods.</p>
 
-<p>Looks like it's easy with #2, but what about #3? It says every object
-has it's own memory (which can be revealed only by sending and received
-messages, by the way). In example before object's memory contains,
-probably, last and first names of a person. But what's not said here -
+<p>Looks like it&rsquo;s easy with #2, but what about #3? It says every object
+has it&rsquo;s own memory (which can be revealed only by sending and received
+messages, by the way). In example before object&rsquo;s memory contains,
+probably, last and first names of a person. But what&rsquo;s not said here &ndash;
 can incoming message mutate internal state of an object? Is following
 code valid?</p>
 
@@ -460,43 +883,43 @@ u.send :update_last_name, "Snow"
 puts u.send :full_name # John Snow
 </code></p>
 
-<p>Most of the time programming language designers answer 'Yes' to that
-question. Python, JavaScript, C#, Java, Ruby, Smalltalk - all of them
+<p>Most of the time programming language designers answer &lsquo;Yes&rsquo; to that
+question. Python, JavaScript, C#, Java, Ruby, Smalltalk &ndash; all of them
 accept objects mutability despite of the differences in those language
-implementations. In fact, it comes implicitly from a definition - Alan
-Key used a word 'memory', so it implies that object can 'remember' what
-happened with it before - and this is a mutability.</p>
+implementations. In fact, it comes implicitly from a definition &ndash; Alan
+Key used a word &lsquo;memory&rsquo;, so it implies that object can &lsquo;remember&rsquo; what
+happened with it before &ndash; and this is a mutability.</p>
 
 <h2>Other look</h2>
 
-<p>FP doesn't give another answer to 'internal state mutability' question
-because FP doesn't speak in terms of objects and messages, but if it
-would we would say 'no, objects are not allowed to change it's state
-once the are created'. If you haven't heard about that before and can
-bring only one item out of this article - let it be this one:</p>
+<p>FP doesn&rsquo;t give another answer to &lsquo;internal state mutability&rsquo; question
+because FP doesn&rsquo;t speak in terms of objects and messages, but if it
+would we would say &lsquo;no, objects are not allowed to change it&rsquo;s state
+once the are created&rsquo;. If you haven&rsquo;t heard about that before and can
+bring only one item out of this article &ndash; let it be this one:</p>
 
 <p><em>Functional programming is a programming using immutable data
 structures and immutable references</em></p>
 
-<p>This is not accurate and not full definition of FP - but I consider this
+<p>This is not accurate and not full definition of FP &ndash; but I consider this
 as most important part of a paradigm. FP is an art of restricting
-yourself to immutable things - and all other stuff comes from that.
-Let's see, if we can still write meaningful things without
+yourself to immutable things &ndash; and all other stuff comes from that.
+Let&rsquo;s see, if we can still write meaningful things without
 mutability.</p>
 
-<p>Smallest building block in FP is a pure function. There's a lot of smart
-words around that - <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
+<p>Smallest building block in FP is a pure function. There&rsquo;s a lot of smart
+words around that &ndash; <a href="http://en.wikipedia.org/wiki/Referential_transparency_(computer_science)">referential transparrency</a>
  or <a href="http://en.wikipedia.org/wiki/Morphism">morphism</a>, but in simple words pure function is a
 plain old programming function, which has 2 properties:</p>
 
 <ol>
-<li>It's result depends only on input parameters</li>
-<li>It's only job is to calculate it's result, it does nothing else - in
-other words, it doesn't have side effects.</li>
+<li>It&rsquo;s result depends only on input parameters</li>
+<li>It&rsquo;s only job is to calculate it&rsquo;s result, it does nothing else &ndash; in
+other words, it doesn&rsquo;t have side effects.</li>
 </ol>
 
 
-<p>I'm sure you uderstood already what pure function is, but let's have
+<p>I&rsquo;m sure you uderstood already what pure function is, but let&rsquo;s have
 some examples:</p>
 
 <p><code>java
@@ -520,10 +943,10 @@ int l = "Some string".length();
 // it using object notation.
 </code></p>
 
-<p>Let's have few extra words about last case. As I said before, we can say
-it's sending a message 'length' to object "Some string", but on the
-other side, there's nothing wrong in looking on it as a function length
-with one parameter "Some string". A fact that strings are immutable in
+<p>Let&rsquo;s have few extra words about last case. As I said before, we can say
+it&rsquo;s sending a message &lsquo;length&rsquo; to object &ldquo;Some string&rdquo;, but on the
+other side, there&rsquo;s nothing wrong in looking on it as a function length
+with one parameter &ldquo;Some string&rdquo;. A fact that strings are immutable in
 Java helps in that paradigm shift a lot.</p>
 
 <p><code>java
@@ -532,7 +955,7 @@ int l = FunctionalStringUtils.length("Some string");
 // And it doesn't change anything in other parts of a program
 </code></p>
 
-<p>Let's add this to our definitions:</p>
+<p>Let&rsquo;s add this to our definitions:</p>
 
 <p><em>Functional programming is a programming using only immutable
 references/data structures and pure functions</em></p>
@@ -540,29 +963,29 @@ references/data structures and pure functions</em></p>
 <h2>So what?</h2>
 
 <p>Ok, forbidden ourselfves to use mutations, we forgot about objects and
-messages and we are using functions instead - for what? Why on Earth
+messages and we are using functions instead &ndash; for what? Why on Earth
 would I use only a subset of possible ways to express a logic of a
 program? Why should I restrict myself to writing only pure functions?</p>
 
 <p>Think about the following:</p>
 
-<p>Only thing that interests us with pure function is it's result. In fact,
-we can replace call to pure function with it's result value - and it
-won't change what our program does. By the way, this property is called
+<p>Only thing that interests us with pure function is it&rsquo;s result. In fact,
+we can replace call to pure function with it&rsquo;s result value &ndash; and it
+won&rsquo;t change what our program does. By the way, this property is called
 referential transparency.</p>
 
-<p>But there's a lot of options for you to get the result value. You can
+<p>But there&rsquo;s a lot of options for you to get the result value. You can
 calculate result during compilation if you know function arguments in
 compile time. Or in another thread. Or in another process. Or at another
-machine. Or you can not calculate the value before it's really needed.
+machine. Or you can not calculate the value before it&rsquo;s really needed.
 Or you can cache the value and return result from cache for same
 function arguments.</p>
 
-<p>Oh, by the way, did I mention multithreading? Usually it's almost
+<p>Oh, by the way, did I mention multithreading? Usually it&rsquo;s almost
 physical pain to debug a mutlithreaded program build in conventional
-way. FP changes that - doesn't matter which thread executed the specific
+way. FP changes that &ndash; doesn&rsquo;t matter which thread executed the specific
 function or if it executed at all. In fact, there are prototypes of
-automatic program paralellization. Think about that - program which
+automatic program paralellization. Think about that &ndash; program which
 knows nothing about multithreading at all, can be run in mutlithreading
 environment.</p>
 
@@ -571,12 +994,12 @@ environment.</p>
 <p>Ok, but what if we need mutations? What do we do to change last name of
 existing user?</p>
 
-<p>Well, we don't. Instead of destructive updates - we copy to new instance
+<p>Well, we don&rsquo;t. Instead of destructive updates &ndash; we copy to new instance
 every time we need to change something:
 ```ruby
-u = {first_name: "John", last_name: "Smith"}
+u = {first_name: &ldquo;John&rdquo;, last_name: &ldquo;Smith&rdquo;}
 puts full_name(u) # Jonh Smith
-u1 = update_last_name(u, "Snow")</p>
+u1 = update_last_name(u, &ldquo;Snow&rdquo;)</p>
 
 <h1>Instead of changing user object, we return an updated copy of it</h1>
 
@@ -584,34 +1007,34 @@ u1 = update_last_name(u, "Snow")</p>
 puts full_name(u) # John Smith
 ```</p>
 
-<p>That looks like a huge waste of resources - when we are changing things
-a lot, we're going to have a lot of copies in our memory. Anyway, fact
+<p>That looks like a huge waste of resources &ndash; when we are changing things
+a lot, we&rsquo;re going to have a lot of copies in our memory. Anyway, fact
 that all our data structures are immutable, opens a door for some
 optimizations which can be done by compiler or runtime, for example you
-can reuse structures or it's parts in different places. Because things
+can reuse structures or it&rsquo;s parts in different places. Because things
 are immutable, we can not fear one part of our program impacting other
 by implicitly changing state of a shared structure.</p>
 
 <p>With that whole class of concurrency problems just go away, so using
-immutable structures is a good idea not only in FP, but in OOP as well -
-Joshua Bloch recommends "Minimize mutability" in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
+immutable structures is a good idea not only in FP, but in OOP as well &ndash;
+Joshua Bloch recommends &ldquo;Minimize mutability&rdquo; in his book <a href="http://books.google.com.ua/books?id=ka2VUBqHiWkC&amp;amp;lpg=PP1&amp;amp;dq=joshua%20bloch%20effective%20java&amp;amp;hl=uk&amp;amp;pg=PA73#v=snippet&amp;amp;q=immutable&amp;amp;f=false">Effective Java</a></p>
 
 <h2>FP distilled</h2>
 
-<p>So, we have immutable structures and pure functions - and those are
-building blocks in FP. If you restrict yourself to this things - you're
-doing FP, if you relax a restriction and doing some other things -
-you're outside of FP land.</p>
+<p>So, we have immutable structures and pure functions &ndash; and those are
+building blocks in FP. If you restrict yourself to this things &ndash; you&rsquo;re
+doing FP, if you relax a restriction and doing some other things &ndash;
+you&rsquo;re outside of FP land.</p>
 
-<p>Also notice we've lost notice of objects and messages - we don't need
-them anymore. As I said before, it's just a matter of syntax - do we put
+<p>Also notice we&rsquo;ve lost notice of objects and messages &ndash; we don&rsquo;t need
+them anymore. As I said before, it&rsquo;s just a matter of syntax &ndash; do we put
 first argument first or after function name:</p>
 
-<p>In FP we don't mix data and behavior inside of our objects, instead we
-have them split in different places - our data structures are skinny and
+<p>In FP we don&rsquo;t mix data and behavior inside of our objects, instead we
+have them split in different places &ndash; our data structures are skinny and
 contain only data and our functions work with every argument they are
-provided with - if it conform some preconditions, of course. Note, we
-haven't talked about types yet - but we're going to do that in next
+provided with &ndash; if it conform some preconditions, of course. Note, we
+haven&rsquo;t talked about types yet &ndash; but we&rsquo;re going to do that in next
 parts of a series.</p>
 ]]></content>
   </entry>

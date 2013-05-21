@@ -1,0 +1,836 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Scala Workshop - day 1, parsers - Blog about sofware development</title>
+  <meta name="author" content="Yura Taras">
+
+  
+  <meta name="description" content="Let&rsquo;s continue on WAAS (workflow-as-a-service). In this post I&rsquo;m going
+to show how to use parsers combinators to parse our workflow &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://ytaras.github.io/blog/2013/05/10/scala-workshop-1">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Blog about sofware development" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="./javascripts/lib/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-40546379-1']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Blog about sofware development</a></h1>
+  
+    <h2>Something should be here</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:ytaras.github.io" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Scala Workshop - Day 1, Parsers</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-05-10T14:27:00+03:00" pubdate data-updated="true">May 10<span>th</span>, 2013</time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p>Let&rsquo;s continue on WAAS (workflow-as-a-service). In this post I&rsquo;m going
+to show how to use parsers combinators to parse our workflow
+definitions.</p>
+
+<p>Have a look at sample workflow definition file we&rsquo;re going to parse. It
+contains 2 worflow definitions &ndash; one for issue tracking system and other
+for deals.</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>workflow issue {
+</span><span class='line'>  start state open
+</span><span class='line'>                 goes to started;
+</span><span class='line'>  state started  goes to open, resolved;
+</span><span class='line'>  state resolved goes to closed, open;
+</span><span class='line'>  state closed;
+</span><span class='line'>};
+</span><span class='line'>
+</span><span class='line'>workflow project {
+</span><span class='line'>  start state negotiation
+</span><span class='line'>               goes to signed, failed;
+</span><span class='line'>  state signed goes to failed, done;
+</span><span class='line'>  state done   goes to paid, failed;
+</span><span class='line'>  state paid;
+</span><span class='line'>  state failed;
+</span><span class='line'>};</span></code></pre></td></tr></table></div></figure>
+
+
+<p>At the end of this post we&rsquo;re going to have a parser, which transforms
+textual definitions to our internal model, ready for persistense.</p>
+
+<!-- more -->
+
+
+<h2>Parsers in ANTLR</h2>
+
+<p>To target that task, let&rsquo;s start with something more conventional than
+Scala parsers. <a href="http://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_Form">EBNF</a> format is widely used for describing grammar, so
+we&rsquo;re going to start with that:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>goes       = 'goes', ws, 'to', ws, { identifier, ',', ws }, identifier;
+</span><span class='line'>state      = [ 'start', ws ], 'state', ws, goes, ws, ';'
+</span><span class='line'>workflow   = 'workflow', ws, identifier, ws, '{', ws, { state, ws },  ws, '}', ws, ';'
+</span><span class='line'>workflows  = { workflow } 
+</span><span class='line'>ws         = ? whitespace characters ?
+</span><span class='line'>identifier = letter { letter | number | '_' }</span></code></pre></td></tr></table></div></figure>
+
+
+<p>In order to generate executable parsers, we should define the grammar
+in some DSL specific for a parser framework we choose. Let&rsquo;s define a
+grammar in <a href="http://www.antlr.org/">ANTLR4</a> &ndash; well known parser in Java world:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>grammar workflowGrammar;
+</span><span class='line'>file: workflowDefinition* EOF;
+</span><span class='line'>workflowDefinition: 'workflow' ID '{' stateDefinition*?'}' ';';
+</span><span class='line'>stateDefinition: 'start'? 'state' ID goes? ';';
+</span><span class='line'>goes: 'goes' 'to' (ID',')* ID;
+</span><span class='line'>ID: [a-zA-Z]([a-z0-9_])* ;
+</span><span class='line'>WS: [ \t\r\n]+ -&gt; skip;</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Based on that grammar we are ready to generate lexer and parser. For
+ones who are not familiar with those terms &ndash; lexer is a converter from
+input stream to stream of tokens and parser is converter from a stream
+of tokens to a parse tree. Anyway, this distinction is not critical in
+our case, so I will refer to lexer+parser combination as simply parser.</p>
+
+<p>I leave ANTLR parser generation and execution as an exercise for a reader.
+Still, here&rsquo;s sample parsed tree you could view using <a href="http://tunnelvisionlabs.com/products/demo/antlrworks">ANTLRWorks</a>:</p>
+
+<figure class='code'><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class=''><span class='line'>(file
+</span><span class='line'>  (workflowDefinition workflow issue {
+</span><span class='line'>      (stateDefinition start state open (goes goes to started) ;)
+</span><span class='line'>      (stateDefinition state started (goes goes to open , resolved) ;)
+</span><span class='line'>      (stateDefinition state resolved (goes goes to closed , open) ;)
+</span><span class='line'>      (stateDefinition state closed ;)
+</span><span class='line'>   } ;)
+</span><span class='line'>  (workflowDefinition workflow project {
+</span><span class='line'>      (stateDefinition start state negotiation (goes goes to signed , failed) ;)
+</span><span class='line'>      (stateDefinition state signed (goes goes to failed , done) ;)
+</span><span class='line'>      (stateDefinition state done (goes goes to paid , failed) ;)
+</span><span class='line'>      (stateDefinition state paid ;)
+</span><span class='line'>      (stateDefinition state failed ;)
+</span><span class='line'>   } ;)
+</span><span class='line'>&lt;EOF&gt;)</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can easily see that this tree is much easier to convert to our model
+than a flat string we had on our input.</p>
+
+<p>ANTLR is a great tool and is used in most cases when we need parsing
+capabilities in Java world. Anyway, there&rsquo;s a thing you should notice
+about grammar definition &ndash; it is so called &lsquo;external DSL&rsquo; &ndash; it means
+that this is a separate language, which needs it&rsquo;s own parser and
+compiler. If instead we would try to define grammar using Java directly,
+it would be a huge pain to write, read and support.</p>
+
+<h2>Parser combinators framework</h2>
+
+<p>Scala goes with it&rsquo;s own parser framework, very much
+inspired by Haskell&rsquo;s <a href="http://legacy.cs.uu.nl/daan/parsec.html">Parsec</a> framework and is a part of standart
+Scala library. In a contrast, Scala&rsquo;s parsers are written using plain
+Scala using some syntatical features and tricks of a language. This
+approach is called <a href="http://martinfowler.com/bliki/DomainSpecificLanguage.html">Internal DSL</a></p>
+
+<p>Idea behind parser combinators is very simple: every parser is defined
+as a function from its input to parse result. Parser result contains
+output value or failure message and rest of input:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">def</span> <span class="n">parse</span><span class="o">(</span><span class="n">input</span><span class="k">:</span> <span class="kt">Input</span><span class="o">)</span><span class="k">:</span> <span class="kt">Result</span> <span class="o">=</span> <span class="o">???</span>
+</span><span class='line'><span class="k">sealed</span> <span class="k">trait</span> <span class="nc">Result</span>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Success</span><span class="o">(</span><span class="n">result</span><span class="k">:</span> <span class="kt">Output</span><span class="o">,</span> <span class="n">next</span><span class="k">:</span> <span class="kt">Input</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Result</span>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Failure</span><span class="o">(</span><span class="n">failure</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">next</span><span class="k">:</span> <span class="kt">Input</span><span class="o">)</span> <span class="k">extends</span> <span class="nc">Result</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>A fact that not-consumed part of input is returned back turns out to be
+ a very usefull feature, because it enables easy parser
+composition. BTW, composition is kind of fetish in functional
+programming community &ndash; ability to define small primitives and compose
+larger thing of it is recognized as design success. With that in mind,
+parser combinators are definitelly a success &ndash; all parser tutorials
+start with creating a parser which parses a single char and than create
+much more expressive parsers on top of that primitive. I won&rsquo;t do that
+in this post, instead I will act as a parser library user. Anyway, I
+strongly recommend reading great <a href="http://henkelmann.eu/2011/01/13/an_introduction_to_scala_parser_combinators">series of posts on that topic</a>. If
+you don&rsquo;t afraid Haskell (and you shouldn&rsquo;t!), there are two chapters on
+our topic in &lsquo;Real World Haskell&rsquo; book &ndash;
+<a href="http://book.realworldhaskell.org/read/code-case-study-parsing-a-binary-data-format.html">Code case study: parsing a binary data format</a> and
+<a href="http://book.realworldhaskell.org/read/using-parsec.html">The Parsec parsing library</a>. This is a really interesting stuff to
+read &ndash; and I give up explaining parser combinators to that guys.</p>
+
+<p>So let&rsquo;s create a file <code>src/main/scala/parser/parser.scala</code> and add
+following content to it:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">parsers</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">import</span> <span class="nn">scala.util.parsing.combinator._</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">object</span> <span class="nc">SampleParser</span> <span class="k">extends</span> <span class="nc">JavaTokenParsers</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">number</span> <span class="k">=</span> <span class="n">floatingPointNumber</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">twoNumbers</span> <span class="k">=</span> <span class="n">number</span> <span class="o">~</span> <span class="n">number</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Let&rsquo;s start from the beginning. We import all required imports and then
+extend our custom object from <code>JavaTokenParsers</code> class. This class is an
+extension of default parsers class, <code>scala.util.parsing.combinator.Parsers</code>.
+What&rsquo;s useful in that class in our case is that it does whitespaces handling
+and provides few useful parsers, like <code>ident</code> or <code>floatingPointNumber</code> we&rsquo;re using in this example.</p>
+
+<p>Launch console with <code>sbt console</code> and have a look at types:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">import</span> <span class="nn">parsers._</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">parsers._</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">import</span> <span class="nn">SampleParser._</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">SampleParser._</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">number</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">SampleParser</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">twoNumbers</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">SampleParser</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">parsers.SampleParser.~</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">String</span><span class="o">]]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Ok, now it should be easier to tell what&rsquo;s going on. Each parser has a type &ndash;
+what is returned on successful parse. For example, <code>number</code> parser
+returns (somewhat surprisingly) String. But what&rsquo;s interesting is a second parser,
+which is constructed as a combination of 2 parsers and return <code>~[String, String]</code> &ndash; yet
+another type to present data tuple. We can use <code>twoNumbers</code> parser on it&rsquo;s own or
+construct more parsers on top of it &ndash; and this is what composition is about.</p>
+
+<p>After defining parsers we can use them. There are 2 methods &ndash; <code>parse</code> and <code>parseAll</code>.
+Difference is that second fails if parser didn&rsquo;t consume all the input. Here are some
+examples of using that:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">object</span> <span class="nc">ParserExample</span> <span class="k">extends</span> <span class="nc">App</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">import</span> <span class="nn">SampleParser._</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing whole string &#39;123&#39; as a number&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="n">parseAll</span><span class="o">(</span><span class="n">number</span><span class="o">,</span> <span class="s">&quot;123&quot;</span><span class="o">).</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing whole string &#39;123 321&#39; as a number&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="n">number</span><span class="o">,</span> <span class="s">&quot;123 123&quot;</span><span class="o">)</span> <span class="k">match</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">case</span> <span class="n">x</span><span class="k">:</span> <span class="kt">NoSuccess</span> <span class="o">=&gt;</span> <span class="n">println</span><span class="o">(</span><span class="n">x</span><span class="o">.</span><span class="n">msg</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing string &#39;123 321&#39; as a number&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="n">parse</span><span class="o">(</span><span class="n">number</span><span class="o">,</span> <span class="s">&quot;123&quot;</span><span class="o">).</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="s">&quot;Parsing whole string &#39;123 321&#39; as two numbers&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="n">println</span><span class="o">(</span><span class="n">parseAll</span><span class="o">(</span><span class="n">twoNumbers</span><span class="o">,</span> <span class="s">&quot;123 321&quot;</span><span class="o">).</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Go ahead and run this program &ndash; there are 1 failing and 3
+successful examples.</p>
+
+<p>So far so good, but how do we convert parser output to types we need? That&rsquo;s what <code>^^</code>
+method is for. Let&rsquo;s make our first parser to convert result to float and second
+one to multiply floats it parses:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">number</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Float</span><span class="o">]</span> <span class="k">=</span> <span class="n">floatingPointNumber</span> <span class="o">^^</span> <span class="o">{</span> <span class="k">_</span><span class="o">.</span><span class="n">toFloat</span> <span class="o">}</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">twoNumbers</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Float</span><span class="o">]</span> <span class="k">=</span> <span class="n">number</span> <span class="o">~</span> <span class="n">number</span> <span class="o">^^</span> <span class="o">{</span> <span class="n">x</span> <span class="k">=&gt;</span>
+</span><span class='line'>    <span class="n">x</span><span class="o">.</span><span class="n">_1</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">_2</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>As shown here, <code>^^</code> operator takes parser on a left and a converter function
+on a right, and a result is a parser which returns converted result.</p>
+
+<p>If you are afraid of pseudo-graphic operators, don&rsquo;t be &ndash; there&rsquo;s more to come.</p>
+
+<h3>Creating a model</h3>
+
+<p>Before we can parse, I advise to create a model for our workflows, so we have a stable ground
+to work on.</p>
+
+<figure class='code'><figcaption><span>model/model.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">model</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Step</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">],</span> <span class="n">start</span><span class="k">:</span> <span class="kt">Boolean</span><span class="o">)</span>
+</span><span class='line'><span class="k">case</span> <span class="k">class</span> <span class="nc">Workflow</span><span class="o">(</span><span class="n">name</span><span class="k">:</span> <span class="kt">String</span><span class="o">,</span> <span class="n">steps</span><span class="k">:</span> <span class="kt">List</span><span class="o">[</span><span class="kt">Step</span><span class="o">])</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is just enough to get started.</p>
+
+<h3>Converting grammar</h3>
+
+<p>Let&rsquo;s start with creating simple non-converting parser:</p>
+
+<figure class='code'><figcaption><span>parsers/parser.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">object</span> <span class="nc">WorkflowParsers</span> <span class="k">extends</span> <span class="nc">JavaTokenParsers</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">workflows</span> <span class="k">=</span> <span class="n">workflow</span><span class="o">.*</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">workflow</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;workflow&quot;</span> <span class="o">~&gt;</span> <span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;{&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">step</span><span class="o">.*</span> <span class="o">&lt;~</span> <span class="o">(</span><span class="s">&quot;}&quot;</span> <span class="o">~</span> <span class="s">&quot;;&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">step</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;start&quot;</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;step&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">~</span> <span class="n">goesTo</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;;&quot;</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">goesTo</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I promised there will be more pseudo-graphics coming. Let&rsquo;s me explain few new things:</p>
+
+<ul>
+<li><code>parser.*</code> means zero-or-many combinator, so created parser will be executed zero or many times. In
+example, workflows file contains zero or more workflow definitions</li>
+<li>strings are implicitly converted to parsers, so <code>"workflow"</code> is actually a parser which accepts &lsquo;workflow&rsquo; string</li>
+<li><code>ident</code> is a parser, which parses a Java identifier</li>
+<li><code>parser1 ~&gt; parser2</code> means that both parsers are executed, but only result of right one is stored,
+so <code>"workflow" ~&gt; ident</code> ensures there&rsquo;s a <code>workflow</code> word before an identifier, but result will
+store only identifier value. Same for <code>&lt;~</code>, which drops the right value and stores left</li>
+<li><code>parser.?</code> is optional combinator, so <code>goesTo.?</code> means there can be or not be <code>goes to</code> part
+in step definition</li>
+</ul>
+
+
+<p>With that in mind, you probably should be able to read through parser definition and see
+it&rsquo;s the same we expressed in ANTLR4 grammar. Let&rsquo;s load this into console and have a look at types generated for us.</p>
+
+<figure class='code'><figcaption><span>parsers/parser.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">goesTo</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]]</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">workflows</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]</span>,<span class="kt">Option</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]]]]]]]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Wow, if for simple parser <code>goesTo</code> it&rsquo;s theoretically readable, for top-level <code>workflows</code> parser it quickly gets out of control.
+We should use our converter functions to get return result to something more usable. I&rsquo;m going to start with <code>goesTo</code>. First, I&rsquo;ll
+explicitly set a type to more desired one:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">def</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span> <span class="k">=</span>  <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we try to compile that, we will get a compile error. I want to fix it, but I don&rsquo;t want to
+write working implementation right away, as I want to use TDD here. So I came for help to <code>???</code>
+operator I described earlier:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>     <span class="k">_</span> <span class="k">=&gt;</span> <span class="o">???</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>What I&rsquo;m writing here &ndash; I want to convert parse result to <code>List[String]</code>, but I&rsquo;m not sure
+about implementation yet, so compile this but throw an error in runtime if someone calls this.</p>
+
+<p>It&rsquo;s time to write some tests:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">parsers</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.specs2.mutable._</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.specs2.ScalaCheck</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">WorkflowParsers._</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">class</span> <span class="nc">WorkflowParserSpec</span> <span class="k">extends</span> <span class="nc">Specification</span> <span class="o">{</span>
+</span><span class='line'>  <span class="s">&quot;Parser&quot;</span> <span class="n">should</span> <span class="o">{</span>
+</span><span class='line'>    <span class="s">&quot;parse goes to&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>       <span class="n">parseAll</span><span class="o">(</span><span class="n">goesTo</span><span class="o">,</span> <span class="s">&quot;goes to one, two, three&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>         <span class="nc">List</span><span class="o">(</span><span class="s">&quot;one&quot;</span><span class="o">,</span> <span class="s">&quot;two&quot;</span><span class="o">,</span> <span class="s">&quot;three&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Note <code>.get</code> method, which is a sneak around type system to give us ability
+to take parse result without working on failure conditions. If parse fails, <code>.get</code>
+throws exception in runtime, which is good enough for testing. Anyway, in
+production code we should use some more consistent approach and I&rsquo;ll go to that in next posts.</p>
+
+<p>If we run a test, we&rsquo;ll receive <code>implementation is missing</code> error, which is exactly what we expected. Let&rsquo;s
+now flesh out an implementation:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">goesTo</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;goes&quot;</span> <span class="o">~</span> <span class="s">&quot;to&quot;</span><span class="o">)</span> <span class="o">~&gt;</span> <span class="o">(</span><span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;,&quot;</span><span class="o">).*</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>     <span class="k">case</span> <span class="n">list</span> <span class="o">~</span> <span class="n">last</span> <span class="k">=&gt;</span> <span class="n">list</span> <span class="o">:+</span> <span class="n">last</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We saw our non-converting parser returns <code>~[List[String], List]</code> class and it is implemented in a way
+it makes possible pattern-matching on that. It makes possible a trick <code>case list ~ last</code>, where
+<code>list</code> and <code>last</code> are deconstructed values of parser result. What we need to do is to append
+last result to a list &ndash; and it&rsquo;s done with <code>:+</code> list operator. Run a test and it succeeds.</p>
+
+<p>If we load a console once more, we&rsquo;ll notice that not only type of <code>goesTo</code> parser changes, but
+of all the other parsers make on top of that:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">goesTo</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scala</span><span class="o">&gt;</span> <span class="k">:type</span> <span class="kt">workflows</span>
+</span><span class='line'><span class="n">parsers</span><span class="o">.</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="nc">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">String</span>,<span class="kt">List</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">parsers.WorkflowParsers.~</span><span class="o">[</span><span class="kt">Option</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span>,<span class="kt">String</span><span class="o">]</span>,<span class="kt">Option</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">String</span><span class="o">]]]]]]]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h3>Doing other parser</h3>
+
+<p>Let&rsquo;s convert other parsers.</p>
+
+<figure class='code'><figcaption><span>parser/parser.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'>  <span class="k">def</span> <span class="n">workflows</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Workflow</span><span class="o">]]</span> <span class="k">=</span> <span class="n">workflow</span><span class="o">.*</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">workflow</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Workflow</span><span class="o">]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;workflow&quot;</span> <span class="o">~&gt;</span> <span class="n">ident</span> <span class="o">&lt;~</span> <span class="s">&quot;{&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">step</span><span class="o">.*</span> <span class="o">&lt;~</span> <span class="o">(</span><span class="s">&quot;}&quot;</span> <span class="o">~</span> <span class="s">&quot;;&quot;</span><span class="o">)</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">_</span> <span class="k">=&gt;</span> <span class="o">???</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">step</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Step</span><span class="o">]</span> <span class="k">=</span> <span class="o">(</span><span class="s">&quot;start&quot;</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;step&quot;</span><span class="o">)</span> <span class="o">~</span> <span class="n">ident</span> <span class="o">~</span> <span class="n">goesTo</span><span class="o">.?</span> <span class="o">&lt;~</span> <span class="s">&quot;;&quot;</span> <span class="o">^^</span> <span class="o">{</span>
+</span><span class='line'>     <span class="k">_</span> <span class="k">=&gt;</span> <span class="o">???</span>
+</span><span class='line'>  <span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And now let&rsquo;s have some tests:</p>
+
+<figure class='code'><figcaption><span>parser/WorkflowParserSpec.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="s">&quot;parse start step&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="n">step</span><span class="o">,</span> <span class="s">&quot;start step name goes to one, two, three;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Step</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="s">&quot;one&quot;</span><span class="o">,</span> <span class="s">&quot;two&quot;</span><span class="o">,</span> <span class="s">&quot;three&quot;</span><span class="o">),</span> <span class="kc">true</span><span class="o">)</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="s">&quot;parse empty step&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="nc">WorkflowParsers</span><span class="o">.</span><span class="n">step</span><span class="o">,</span> <span class="s">&quot;step name;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Step</span><span class="o">(</span><span class="s">&quot;name&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(),</span> <span class="kc">false</span><span class="o">)</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="s">&quot;parse empty workflow&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="n">workflow</span><span class="o">,</span> <span class="s">&quot;&quot;&quot;workflow wf {};&quot;&quot;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Workflow</span><span class="o">(</span><span class="s">&quot;wf&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">())</span>
+</span><span class='line'><span class="o">}</span>
+</span><span class='line'><span class="s">&quot;parse not-empty workflow&quot;</span> <span class="n">in</span> <span class="o">{</span>
+</span><span class='line'>  <span class="n">parseAll</span><span class="o">(</span><span class="n">workflow</span><span class="o">,</span> <span class="s">&quot;&quot;&quot;workflow wf {</span>
+</span><span class='line'><span class="s">                          start step one goes to two;</span>
+</span><span class='line'><span class="s">                          step two;</span>
+</span><span class='line'><span class="s">                        };&quot;&quot;&quot;</span><span class="o">).</span><span class="n">get</span> <span class="n">must_==</span>
+</span><span class='line'>     <span class="nc">Workflow</span><span class="o">(</span><span class="s">&quot;wf&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Step</span><span class="o">(</span><span class="s">&quot;one&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="s">&quot;two&quot;</span><span class="o">),</span> <span class="kc">true</span><span class="o">),</span> <span class="nc">Step</span><span class="o">(</span><span class="s">&quot;two&quot;</span><span class="o">,</span> <span class="nc">List</span><span class="o">(),</span> <span class="kc">false</span><span class="o">)))</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I know there&rsquo;s a lot duplications and I&rsquo;m going to do some refactoring in my next post.</p>
+
+<p>I encourage you to go ahead and try to fix those tests by yourself. I have created a tagged revision
+so it should be easier for you to setup environment:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='sh'><span class='line'>git clone https://github.com/ytaras/scala_waas.git
+</span><span class='line'><span class="nb">cd </span>scala_waas
+</span><span class='line'>git checkout day1-homework
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>I also submitted a solution for the impatient &ndash; have a look at tag <code>day1-homework-solved</code>,
+anyway you&rsquo;ll learn better if you try to do the homework yourself.</p>
+
+<h3>Conclusion</h3>
+
+<p>This was a long post. Hopefully, it was useful, as I&rsquo;m going to continue hacking our new and shiny WAAS service.
+I&rsquo;m looking forward for receiving comments and questions from you &ndash; and will meet in the next post.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Yura Taras</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-05-10T14:27:00+03:00" pubdate data-updated="true">May 10<span>th</span>, 2013</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/scala/'>Scala</a>, <a class='category' href='/blog/categories/waas/'>WAAS</a>, <a class='category' href='/blog/categories/functional-programming/'>functional programming</a>, <a class='category' href='/blog/categories/parser-combinators/'>parser combinators</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://ytaras.github.io/blog/2013/05/10/scala-workshop-1/" data-via="" data-counturl="http://ytaras.github.io/blog/2013/05/10/scala-workshop-1/" >Tweet</a>
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2013/04/29/scala_workshop_0/" title="Previous Post: Scala Workshop - day 0">&laquo; Scala Workshop - day 0</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2013/05/10/scala-workshop-1/">Scala Workshop - day 1, parsers</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/29/scala_workshop_0/">Scala Workshop - day 0</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/05/slides/">More slides</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/04/05/heart/">Heart of a Functional programming</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/03/29/presentations/">Presentations</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/ytaras">@ytaras</a> on GitHub
+  
+  <script type="text/javascript">
+    $(document).ready(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'ytaras',
+            count: 0,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+
+<section class="googleplus">
+  <h1>
+    <a href="https://plus.google.com/104286134372549810123?rel=author">
+      <img src="http://www.google.com/images/icons/ui/gprofile_button-32.png" width="32" height="32">
+      Google+
+    </a>
+  </h1>
+</section>
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2013 - Yura Taras -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'ytarasblog';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://ytaras.github.io/blog/2013/05/10/scala-workshop-1/';
+        var disqus_url = 'http://ytaras.github.io/blog/2013/05/10/scala-workshop-1/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>
