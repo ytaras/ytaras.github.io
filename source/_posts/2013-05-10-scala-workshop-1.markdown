@@ -119,8 +119,8 @@ sealed trait Result
 case class Success(result: Output, next: Input) extends Result
 case class Failure(failure: String, next: Input) extends Result
 ```
-Returning rest of the input, which wasn't consumed by a parser, turns
-out to be a very usefull feature, because it enables easy parser
+A fact that not-consumed part of input is returned back turns out to be
+ a very usefull feature, because it enables easy parser
 composition. BTW, composition is kind of fetish in functional
 programming community - ability to define small primitives and compose
 larger thing of it is recognized as design success. With that in mind,
