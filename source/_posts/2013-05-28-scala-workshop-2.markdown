@@ -107,5 +107,68 @@ There's more about `Option` type - I could talk about `flatMap` and
 for-comprehensions syntax, but I prefer to go on with more practical things and
 introduce those features once we will need them.
 
+Validations
+-----------
+
+Currently we are able to pass workflow definitions which have valid syntax but are not valid workflow definitions. For example, we can define workflow without start step. Let's target that.
+
+Which different scenarios of invalid workflow definitions can we imagine? Probably workflow without steps is invalid, also workflow where there are no start steps or more that one start step is invalid as well. Also we can try to detect steps which are not accessible from other steps - in scope of this post we'll use very basic algorithm for that kind of validation. We don't know yet how our API will look like, but we can aleady write down those thoughts as pending specs.
+
+```scala validator_spec.scala
+class ValidationSpec extends Specification {
+  "Workflow validator" should {
+     "fail workflow without start stage" in { pending }
+     "fail workflow with few start stages" in { pending }
+     "fail wokrflow with orphan stages" in { pending }
+     "pass successfull workflow" in { pending }
+  }
+}
+```
+
+In output of spec run we will see our scenarios marked as pending - that will help us to stay focused. But before we flesh out test for that large complex validator, let's create a smaller validator which targets only one validation and then we'll see how we can compose them into larger one.
+
+For example, I will take first scenario and think about validation of steps presence. What signature would you use?
+```scala
+  def hasAnySteps(workflow: Workflow): Boolean = ???
+```
+First idea you probably had was to have validator that returns boolean value indicating if workflow is valid. Anyway, it will be not very convenient to compose as return value does not contain error message and if we write a big validator using this one, we'll have to transform false value into String message. It would be better if return value would contain error message. Maybe we can resort to exception handling?
+```scala
+   @throws(classOf[WidgetValidationException])
+   def validateHasSteps(workflow: Workflow): Unit = ???
+```
+
+Now we can catch an exception and extract message from it. Anyway, composing methods with exception is a pain. Instead let's return validation message if we validation fails and empty value if passed argument is correct:
+```scala validation.scala
+  def zeroStepsValidation(wf: Workflow): Option[String] = if (wf.steps.isEmpty) Some("Workflow has 0 steps") else None
+```
+```scala validator_spec.scala
+  "zero step validator" should {
+     import WorkflowValidator._
+     "return None for valid workflow" in {
+       zeroStepsValidation(valid) must beNone
+     }
+     "return Some for invalid workflow" in {
+       zeroStepsValidation(Workflow("wf", Nil)) must beSome
+     }
+  }
+```
+
+I have created a tag in `git@github.com:ytaras/scala_waas.git` repository called `day2-homework1`, which contains a stub and specs for 3 other validators, so you may want check it out and try implementing that on yourself. If you're lazy, you can have a look at `day2-homework1-solved`. Note - it's not a shortest solution possible, but it's something I hope will be easy to read for you if you still have little experience with functional programming.
+
+Combining validations
+---------------------
+
+Now we want to add combine those validations into one. We may continue using `Option` approach as we did before, but instead I would like to introduce another extremely useful and convenient type called `Validation`, which ships with external library called scalaz. Standard Scala library contains similar type called `Either`, but `Validation` has much better namings and convenient DSL. So next our step is to add dependency in our sbt file:
+```scala project.sbt
+libraryDependencies ++= Seq(
+    "org.scalaz" %% "scalaz-core" % "7.0.0",
+    "org.scalacheck" %% "scalacheck" % "1.10.1" % "test",
+    "org.specs2" %% "specs2" % "1.14" % "test"
+)
+```
+
+`Option` type is our way of saying "I have or don't have a value for you". With `Validation[B, A]` you say "I either have a value of type A or an error of type explaining what's wrong".
+
+
 
 [a billion dollar mistake]: http://lambda-the-ultimate.org/node/3186
