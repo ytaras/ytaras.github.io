@@ -167,8 +167,112 @@ libraryDependencies ++= Seq(
 )
 ```
 
-`Option` type is our way of saying "I have or don't have a value for you". With `Validation[B, A]` you say "I either have a value of type A or an error of type explaining what's wrong".
+Now we will add imports to every file where we use Scalaz:
+```scala
+// Note - in real code use more fine-grained imports that Scalaz._
+// that imports whole library
+import scalaz._
+import Scalaz._
+```
 
+`Option` type is our way of saying "I have or don't have a value for you". With `Validation[B, A]` you can say "I either have a value of type A or an error of type explaining what's wrong". With that value we can imagine somewhat redundant overall validation function in our case:
+```scala
+def validate(workflow: Workflow): Validation[List[String], Workflow] = ???
+```
 
+In case of successful validation we receive `Success(Workflow)`, but if there are validation errors, we receive `Error(List[String]))` which contains list of validation errors. Still, there's a sneak hole here - we can create `Error([])` which obviously doesn't make sense. Scalaz provides special type called `NotEmptyList[A]` which is, surprisingly, list which is guaranteed to contain at least one element.
 
+Now, if we change return type to `Validation[NotEmptyList[String], Workglow]` we are sure that validation result is either success or error with at least one validation explaining what's wrong.
+
+It turns out that that situation is so common that Scalaz provides special type alias called `ValidationNel[E, A]` which is just a shorter notation for `Validation[NotEmptyList[E], A]`.
+
+```scala
+def validate(workflow: Workflow): ValidationNel[String, Workflow] = ???
+```
+
+Testing
+-------
+
+Before writing specs I'll create utility class so we are able to work better with Validation values. I have copied it from scalaz mailing list:
+```scala test/util.scala
+package util
+
+import scalaz._
+import org.specs2.mutable._
+import org.specs2.matcher._
+
+trait ValidationMatcher { self: Specification =>
+
+  /** success matcher for a Validation */
+  def beSuccessful[E, A]: Matcher[Validation[E, A]] = (v: Validation[E, A]) => (v.fold(_ => false, _ => true), v+" successful", v+" is not successfull")
+
+  /** failure matcher for a Validation */
+  def beAFailure[E, A]: Matcher[Validation[E, A]] = (v: Validation[E, A]) => (v.fold(_ => true, _ => false), v+" is a failure", v+" is not a failure")
+
+  /** success matcher for a Validation with a specific value */
+  def succeedWith[E, A](a: =>A) = validationWith[E, A](Success(a))
+
+  /** failure matcher for a Validation with a specific value */
+  def failWith[E, A](e: =>E) = validationWith[E, A](Failure(e))
+
+  private def validationWith[E, A](f: =>Validation[E, A]): Matcher[Validation[E, A]] = (v: Validation[E, A]) => {
+    val expected = f
+    (expected == v, v+" is a "+expected, v+" is not a "+expected)
+  }
+
+}
+```
+Now we can use those matchers in our spec:
+```scala
+  "Workflow validator" should {
+    "fail workflow without any steps" in {
+      validate(emptyWorkflow) must failWith("Workflow has 0 steps".wrapNel)
+    }
+    "fail workflow without start step" in {
+      validate(noStartWorkflow) must
+        failWith("Workflow has 0 start steps".wrapNel)
+    }
+    "fail workflow with few start steps" in {
+      validate(fewStartsWorkflow) must
+        failWith("Workflow has more than 1 start step".wrapNel)
+    }
+    "fail workflow with orphan steps" in {
+      validate(orphansWorkflow) must
+        failWith("There are steps that can't be reached".wrapNel)
+    }
+    "pass successfull workflow" in { validate(valid) must succeedWith(valid) }
+  }
+```
+`.wrapNel` method is a shorthand syntax added by Scalaz to _wrap_ a value into `NonEmptyList`.
+
+How do we implement that? Let's follow with types. We have a number of validators, which can be expressed as `List[Workflow => Option[String]]`. We can apply all of them to `Workflow` resulting into `List[Option[String]]`. Now we can flatten that list to probably empty `List[String]`. Now we would like to convert that to `NonEmptyList`, but we have a possibility of failure, in case if our list is empty, so we have to use `Option[NonEmptyList[String]]`. From there we can go to `ValidationNel[String, Workflow]`, converting `None` (no errors) to `Success[Workflow]` and `Some` to `Failure`.
+
+Here's the working implementation:
+```scala validator.scala
+  def validate(workflow: Workflow) =
+    validators.map { _.apply(workflow) }.flatten.toNel.toFailure(workflow)
+```
+
+You may want to read method signatures to ensure it does exactly the same flow we expressed in previous paragraph.
+
+Still, we have errors in our test suite. This is because if, for instance, we have 0 steps, we have 0 start steps as well. There are few ways to fix that - provide smarter matcher or throw only one error at time, but I will simply replace expectations with correct values:
+```scala validator_spec.scala
+    "fail workflow without any steps" in {
+      validate(emptyWorkflow) must
+        failWith(nels("Workflow has 0 steps", "Workflow has 0 start steps"))
+    }
+    "fail workflow without start step" in {
+      validate(noStartWorkflow) must
+        failWith(nels("Workflow has 0 start steps",
+          "There are steps that can't be reached"))
+    }
+```
+To use `nels` helper method, you need to mix trait `NonEmptyListFunctions` to your spec.
+
+Now you can make your validators private and remove specs for them - only method which is going to be used in your API is `validate`. Also I would like to use some Scalaz boolean syntax goodies to shorten individual validators code:
+```scala validator.scala
+  private def zeroStepsValidation(wf: Workflow) =
+    wf.steps.isEmpty.option("Workflow has 0 steps")
+```
+Go ahead and refactor other methods in same fashion.
 [a billion dollar mistake]: http://lambda-the-ultimate.org/node/3186
